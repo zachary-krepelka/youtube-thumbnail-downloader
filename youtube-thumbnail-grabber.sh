@@ -149,8 +149,8 @@ skipped if the image already exists on disk.
 =item B<-q> I<NUM>
 
 This flag specifies the [q]uality of the image. The argument is a number ranging
-from one to five.  YouTube thumbnails come in five varieties. From best to
-worst, they are as follows.
+from one to five.  YouTube thumbnails come in five varieties. From worst to
+best, they are as follows.
 
 =over
 
@@ -168,7 +168,7 @@ worst, they are as follows.
 
 This script downloads the lowest quality image by default, namely because it's
 always guaranteed to exist. Higher quality versions of the thumbnail might not
-exist, so be wary when using this flag.
+exist, so be wary when using this flag. You could end up with empty files.
 
 =item B<-b>
 
