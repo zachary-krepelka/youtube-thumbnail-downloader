@@ -5,7 +5,7 @@
 # DATE: Tuesday, April 2nd, 2024
 # ABOUT: a shell script to download YouTube thumbnails in bulk
 # ORIGIN: https://github.com/zachary-krepelka/bookmarks.git
-# UPDATED: Sunday, April 7th, 2024 at 4:56 PM
+# UPDATED: Sunday, April 7th, 2024 at 6:33 PM
 
 usage() { program=$(basename $0); cat << EOF >&2
 Usage: $program [options] <file (of urls)>
@@ -59,7 +59,7 @@ shift $((OPTIND-1))
 
 video_id_length=11
 
-video_id_pattern="(?<=v=).{$video_id_length}(?=&|$|\")"
+video_id_pattern="(?<=v=).{$video_id_length}(?=&|\s|\"|$)"
 
 for video_id in $(grep -oP $video_id_pattern $1 || cut -c -$video_id_length $1)
 do
@@ -200,19 +200,32 @@ created, but some of them will consequently be empty.
 
 =back
 
+=head1 EXAMPLES
+
+To download a single thumbnail without creating an input file, you can use
+process substitution, like this.
+
+	bash youtube-thumbnail-grabber.sh <(echo YOUR_URL_HERE)
+
+To download thumbnails in bulk, create a file of YouTube URLs.
+
+	FILENAME: urls.txt
+
+	1  https://www.youtube.com/watch?v=abcdefghijk
+	2  https://www.youtube.com/watch?v=bcdefghijkl
+	3  https://www.youtube.com/watch?v=cdefghijklm
+	4  ...
+
+Then just pass the file to the script, like this.
+
+	bash youtube-thumbnail-grabber.sh urls.txt
+
 =head1 NOTES
 
-I remarked that the input file is a list of URLs, like this.
-
-	https://www.youtube.com/watch?v=abcdefghijk
-	https://www.youtube.com/watch?v=bcdefghijkl
-	https://www.youtube.com/watch?v=cdefghijklm
-	...
-
-This makes it easy to copy and paste with CTRL-A CTRL-C CTRL-V from the URL bar
-of your web browser to a bare text file.  It does not matter if the URLs are
-messy.  The videos can even be part of a list and still parse correctly.  This
-will also work.
+I remarked that the input file is a list of URLs.  This makes it easy to copy
+and paste with CTRL-A CTRL-C CTRL-V from the URL bar of your web browser to a
+bare text file.  It does not matter if the URLs are messy.  The videos can even
+be part of a list and still parse correctly.  This will also work.
 
 	https://www.youtube.com/watch?v=abcdefghijk&list=lmnopqrstuvwx
 
@@ -239,11 +252,14 @@ Versus video-ids.txt
 	cdefghijklm
 	...
 
-However, you can't mix the two in the same file. Otherwise, the full URLs will
-take priority, thereby ignoring video IDs.
+The program will first look for YouTube URLs, and if none are found, it will
+instead look for video IDs.  You cannot mix video IDs and URLs in the same file.
+Otherwise, the full URLs will take priority, thereby ignoring any video IDs.
 
-There is one final rule that we can loosen.  The YouTube URLs can be spread out
-sporadically in the file; they don't need to be in a neat list.
+The latter must be well-formed, but the former does not need to be well-formed.
+The YouTube URLs can be spread out sporadically in the file; they don't need to
+be in a neat list.  You can even put them all on one line if delimited by
+spaces. On the other hand, the video IDs must be formatted as shown.
 
 =head1 SEE ALSO
 
