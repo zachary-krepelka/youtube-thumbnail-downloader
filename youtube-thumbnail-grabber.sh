@@ -5,7 +5,7 @@
 # DATE: Tuesday, April 2nd, 2024
 # ABOUT: a shell script to download YouTube thumbnails in bulk
 # ORIGIN: https://github.com/zachary-krepelka/bookmarks.git
-# UPDATED: Sunday, April 7th, 2024 at 6:33 PM
+# UPDATED: Sunday, June 30th, 2024 at 11:52 AM
 
 usage() { program=$(basename $0); cat << EOF >&2
 Usage: $program [options] <file (of urls)>
@@ -13,6 +13,7 @@ download YouTube thumbnails in bulk from the command line
 
 Options:
 	-q {1,2,3,4,5}	image [q]uality from worst to best
+	-i		select image quality [i]nteractively
 	-b		download [b]est image quality available
 	-a		download image in [a]ll qualities
 	-f		[f]orcibly overwrite preexisting files
@@ -42,7 +43,7 @@ qualities=(
 	'maxresdefault'
 )
 
-while getopts abcfhq: option
+while getopts abcfhiq: option
 do
 	case $option in
 
@@ -52,6 +53,20 @@ do
 		f) force=true;;
 		h) usage;;
 		q) index=$OPTARG;;
+		i)
+			echo -e "From Worst to Best\n"
+			PS3=$'\n''Choose an image quality: '
+
+			select quality in ${qualities[@]}
+			do
+				if test $quality
+				then
+					index=$REPLY
+					break
+				else
+					echo invalid input
+				fi
+			done ;;
 
 	esac
 done
@@ -121,15 +136,15 @@ bash youtube-thumbnail-grabber.sh [options] <file>
 The purpose of this script is to download thumbnails from YouTube videos in
 bulk.  The input is a file containing a list of YouTube URLs.  For each video in
 that list, this script will download its thumbnail as a jpg file with it's ID as
-the filename. For example:
+the filename.  For example:
 
 	https://www.youtube.com/watch?v=XqZsoesa55w  -->  XqZsoesa55w.jpg
 
 =head1 OPTIONS
 
 Be mindful that some flags take priority over others.  The order of ascending
-priority is q, b, a, and h with c and f being irrelevant.  Flags may be
-specified together, e.g., -bcf.
+priority is q (equivalently i), b, a, and h with c and f being irrelevant.
+Flags may be specified together, e.g., -bcf.
 
 =over
 
@@ -148,9 +163,9 @@ skipped if the image already exists on disk.
 
 =item B<-q> I<NUM>
 
-This flag specifies the [q]uality of the image. The argument is a number ranging
-from one to five.  YouTube thumbnails come in five varieties. From worst to
-best, they are as follows.
+This flag specifies the [q]uality of the image.  The argument is a number
+ranging from one to five.  YouTube thumbnails come in five varieties.  From
+worst to best, they are as follows.
 
 =over
 
@@ -167,8 +182,14 @@ best, they are as follows.
 =back
 
 This script downloads the lowest quality image by default, namely because it's
-always guaranteed to exist. Higher quality versions of the thumbnail might not
-exist, so be wary when using this flag. You could end up with empty files.
+always guaranteed to exist.  Higher quality versions of the thumbnail might not
+exist, so be wary when using this flag.  You could end up with empty files.
+
+=item B<-i>
+
+The user is presented with a menu to choose the image quality.  This flag is an
+[i]nteractive equivalent of the B<-q> flag.  The last of B<-i> and B<-q> to be
+specified on the command line will take priority.
 
 =item B<-b>
 
@@ -176,13 +197,13 @@ Download the [b]est image quality that's available.
 
 =item B<-a>
 
-Download the image in [a]ll possible qualities. There are five.  Hence, the
+Download the image in [a]ll possible qualities.  There are five.  Hence, the
 number of images that this script will download when using this flag is five
 times the number of lines in the input file.
 
 	expr 5 \* $(wc -l < urls.txt)
 
-This flag will also induce a different naming scheme on the output files. Here
+This flag will also induce a different naming scheme on the output files.  Here
 is an example of how the files will be named when the -a flag is used.
 
 	echo https://www.youtube.com/watch?v=XqZsoesa55w > baby-shark.txt
@@ -230,9 +251,9 @@ be part of a list and still parse correctly.  This will also work.
 	https://www.youtube.com/watch?v=abcdefghijk&list=lmnopqrstuvwx
 
 If you use the Vimium browser extension, copy-and-pasting YouTube URLs can be
-achieved with the B<yf> command. This way is faster; you to not have to follow a
-link to copy it, you do not loose focus of the window, and you don't have to use
-a mouse. Check out the project here.
+achieved with the B<yf> command.  This way is faster; you to not have to follow
+a link to copy it, you do not loose focus of the window, and you don't have to
+use a mouse.  Check out the project here.
 
 	https://github.com/philc/vimium
 
@@ -259,7 +280,7 @@ Otherwise, the full URLs will take priority, thereby ignoring any video IDs.
 The latter must be well-formed, but the former does not need to be well-formed.
 The YouTube URLs can be spread out sporadically in the file; they don't need to
 be in a neat list.  You can even put them all on one line if delimited by
-spaces. On the other hand, the video IDs must be formatted as shown.
+spaces.  On the other hand, the video IDs must be formatted as shown.
 
 =head1 SEE ALSO
 
