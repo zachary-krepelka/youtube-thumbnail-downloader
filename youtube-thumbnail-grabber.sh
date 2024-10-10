@@ -5,7 +5,7 @@
 # DATE: Tuesday, April 2nd, 2024
 # ABOUT: a shell script to download YouTube thumbnails in bulk
 # ORIGIN: https://github.com/zachary-krepelka/bookmarks.git
-# UPDATED: Sunday, June 30th, 2024 at 11:52 AM
+# UPDATED: Wednesday, October 9th, 2024 at 8:53 PM
 
 usage() { program=$(basename $0); cat << EOF >&2
 Usage: $program [options] <file (of urls)>
@@ -18,6 +18,7 @@ Options:
 	-a		download image in [a]ll qualities
 	-f		[f]orcibly overwrite preexisting files
 	-c		[c]ount the files as they download
+	-w		download [w]ebp instead of jpg
 	-h		display this [h]elp message
 
 Example: bash $program -b urls.txt
@@ -32,6 +33,7 @@ best=false
 force=false
 counting=false
 count=0
+ext=jpg
 
 flags=-q # nonrequisite wget flags
 
@@ -43,7 +45,7 @@ qualities=(
 	'maxresdefault'
 )
 
-while getopts abcfhiq: option
+while getopts abcfhiq:w option
 do
 	case $option in
 
@@ -52,7 +54,6 @@ do
 		c) counting=true;;
 		f) force=true;;
 		h) usage;;
-		q) index=$OPTARG;;
 		i)
 			echo -e "From Worst to Best\n"
 			PS3=$'\n''Choose an image quality: '
@@ -66,10 +67,13 @@ do
 				else
 					echo invalid input
 				fi
-			done ;;
-
+			done
+		;;
+		q) index=$OPTARG;;
+		w) ext=webp; alt=_webp;;
 	esac
 done
+
 shift $((OPTIND-1))
 
 video_id_length=11
@@ -84,24 +88,24 @@ do
 		echo $count
 	fi
 
-	url_prefix=https://img.youtube.com/vi/$video_id
+	url_prefix=https://img.youtube.com/vi$alt/$video_id
 
 	if $all
 	then
 		for quality in ${qualities[@]}
 		do
-			image=$video_id-$quality.jpg
+			image=$video_id-$quality.$ext
 
 			if ! $force && test -f $image
 			then continue
 			fi
 
-			wget $flags -O $image $url_prefix/$quality.jpg
+			wget $flags -O $image $url_prefix/$quality.$ext
 		done
 		continue
 	fi
 
-	image=$video_id.jpg
+	image=$video_id.$ext
 
 	if ! $force && test -f $image
 	then continue
@@ -111,13 +115,13 @@ do
 	then
 		for i in 4 3 2 1 0
 		do
-			wget $flags -O $image $url_prefix/${qualities[$i]}.jpg
+			wget $flags -O $image $url_prefix/${qualities[$i]}.$ext
 			test $? -eq 0 && break
 		done
 		continue
 	fi
 
-	wget $flags -O $image $url_prefix/${qualities[index-1]:-default}.jpg
+	wget $flags -O $image $url_prefix/${qualities[index-1]:-default}.$ext
 done
 
 : <<='cut'
@@ -218,6 +222,12 @@ is an example of how the files will be named when the -a flag is used.
 
 Higher quality images may not exist. In that case, the files will still be
 created, but some of them will consequently be empty.
+
+=item B<-w>
+
+YouTube thumbnails are formatted in two varieties: jpeg and webp.  This script
+downloads thumbnails in the jpeg file format by default. Pass the B<-w> flag to
+download the thumbnails in the [w]ebp file format instead.
 
 =back
 
