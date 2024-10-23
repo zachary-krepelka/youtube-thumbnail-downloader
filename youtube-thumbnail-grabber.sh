@@ -80,7 +80,14 @@ video_id_length=11
 
 video_id_pattern="(?<=v=).{$video_id_length}(?=&|\s|\"|$)"
 
-for video_id in $(grep -oP $video_id_pattern $1 || cut -c -$video_id_length $1)
+shorts_are_videos='s|shorts/|watch?v=|g'
+
+video_ids=$(
+	sed         $shorts_are_videos  $1   |
+	grep  -oP   $video_id_pattern       ||
+	cut   -c   -$video_id_length    $1   )
+
+for video_id in $video_ids
 do
 	if $counting
 	then
@@ -259,6 +266,8 @@ bare text file.  It does not matter if the URLs are messy.  The videos can even
 be part of a list and still parse correctly.  This will also work.
 
 	https://www.youtube.com/watch?v=abcdefghijk&list=lmnopqrstuvwx
+
+URLs to YouTube shorts will also work.
 
 If you use the Vimium browser extension, copy-and-pasting YouTube URLs can be
 achieved with the B<yf> command.  This way is faster; you to not have to follow
