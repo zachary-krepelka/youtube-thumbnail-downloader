@@ -4,8 +4,8 @@
 # AUTHOR: Zachary Krepelka
 # DATE: Tuesday, April 2nd, 2024
 # ABOUT: a shell script to download YouTube thumbnails in bulk
-# ORIGIN: https://github.com/zachary-krepelka/bookmarks.git
-# UPDATED: Wednesday, October 9th, 2024 at 8:53 PM
+# ORIGIN: to be determined
+# UPDATED: Thursday, July 17th, 2025 at 2:52 PM
 
 usage() { program=$(basename $0); cat << EOF >&2
 Usage: $program [options] <file (of urls)>
@@ -300,18 +300,6 @@ The latter must be well-formed, but the former does not need to be well-formed.
 The YouTube URLs can be spread out sporadically in the file; they don't need to
 be in a neat list.  You can even put them all on one line if delimited by
 spaces.  On the other hand, the video IDs must be formatted as shown.
-
-=head1 SEE ALSO
-
-This script is part of my GitHub repository.
-
-	https://github.com/zachary-krepelka/bookmarks.git
-
-This repository contains various scripts for bookmark management.  I have
-included this script in this repository because it can be used on a bookmark
-file.
-
-	bash youtube-thumbnail-grabber.sh bookmarks.html
 
 =head1 AUTHOR
 
