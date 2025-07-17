@@ -5,26 +5,38 @@
 # DATE: Tuesday, April 2nd, 2024
 # ABOUT: a shell script to download YouTube thumbnails in bulk
 # ORIGIN: to be determined
-# UPDATED: Thursday, July 17th, 2025 at 2:52 PM
+# UPDATED: Thursday, July 17th, 2025 at 2:57 PM
 
-usage() { program=$(basename $0); cat << EOF >&2
-Usage: $program [options] <file (of urls)>
-download YouTube thumbnails in bulk from the command line
+program=${0##*/}
 
-Options:
-	-q {1,2,3,4,5}	image [q]uality from worst to best
-	-i		select image quality [i]nteractively
-	-b		download [b]est image quality available
-	-a		download image in [a]ll qualities
-	-f		[f]orcibly overwrite preexisting files
-	-c		[c]ount the files as they download
-	-w		download [w]ebp instead of jpg
-	-h		display this [h]elp message
+usage() {
+	# NOTE options are listed here in the same order as in the documentation
+	cat <<-USAGE
+	usage: $program [options] <file (of urls)>
+	download YouTube thumbnails in bulk from the command line
 
-Example: bash $program -b urls.txt
-Documentation: perldoc $program
-EOF
-exit 0
+	options:
+	  -h             display this [h]elp message and exit
+	  -o {DIR}       specifies the [o]utput directory
+	  -c             [c]ount the files as they download
+	  -f             [f]orcibly overwrite preexisting files
+	  -q {1,2,3,4,5} image [q]uality from worst to best
+	  -i             select image quality [i]nteractively
+	  -b             download [b]est image quality available
+	  -a             download image in [a]ll qualities
+	  -w             download [w]ebp instead of jpg
+
+	example: bash $program -b urls.txt
+	documentation: perldoc $program
+	USAGE
+}
+
+error() {
+	code="$1"
+	message="$2"
+
+	echo "$program: $message" 1>&2
+	exit "$code"
 }
 
 index=1
@@ -34,6 +46,7 @@ force=false
 counting=false
 count=0
 ext=jpg
+dir=.
 
 flags=-q # nonrequisite wget flags
 
@@ -45,7 +58,7 @@ qualities=(
 	'maxresdefault'
 )
 
-while getopts abcfhiq:w option
+while getopts abcfhio:q:w option
 do
 	case $option in
 
@@ -53,7 +66,7 @@ do
 		b) best=true;;
 		c) counting=true;;
 		f) force=true;;
-		h) usage;;
+		h) usage; exit 0;;
 		i)
 			echo -e "From Worst to Best\n"
 			PS3=$'\n''Choose an image quality: '
@@ -68,6 +81,13 @@ do
 					echo invalid input
 				fi
 			done
+		;;
+		o)
+			dir="${OPTARG%/}"
+			if test ! -d "$dir"
+			then error 1 "\"$dir\" is not a directory."
+			fi
+
 		;;
 		q) index=$OPTARG;;
 		w) ext=webp; alt=_webp;;
@@ -101,7 +121,7 @@ do
 	then
 		for quality in ${qualities[@]}
 		do
-			image=$video_id-$quality.$ext
+			image=$dir/$video_id-$quality.$ext
 
 			if ! $force && test -f $image
 			then continue
@@ -112,7 +132,7 @@ do
 		continue
 	fi
 
-	image=$video_id.$ext
+	image=$dir/$video_id.$ext
 
 	if ! $force && test -f $image
 	then continue
@@ -162,6 +182,12 @@ Flags may be specified together, e.g., -bcf.
 =item B<-h>
 
 Display a [h]elp message and exit.
+
+=item B<-o> I<DIR>
+
+This option specifies the [o]utput directory where the images will be
+downloaded.  The directory name can be given with or without a trailing slash.
+The directory must first exist; it will not be created for you.
 
 =item B<-c>
 
@@ -235,6 +261,22 @@ created, but some of them will consequently be empty.
 YouTube thumbnails are formatted in two varieties: jpeg and webp.  This script
 downloads thumbnails in the jpeg file format by default. Pass the B<-w> flag to
 download the thumbnails in the [w]ebp file format instead.
+
+=back
+
+=head1 DIAGNOSTICS
+
+The program exits with the following status codes.
+
+=over
+
+=item 0 successful completion
+
+=item 1 not a directory
+
+The output directory specified by the B<-o> option does not exist. To fix this,
+you must create the directory and ensure that it's accessible with standard
+permissions.
 
 =back
 
