@@ -3,9 +3,11 @@
 # FILENAME: youtube-thumbnail-grabber.sh
 # AUTHOR: Zachary Krepelka
 # DATE: Tuesday, April 2nd, 2024
-# ABOUT: a shell script to download YouTube thumbnails in bulk
+# ABOUT: a shell script to bulk download YouTube thumbnails
 # ORIGIN: to be determined
-# UPDATED: Saturday, July 26th, 2025 at 10:32 AM
+# UPDATED: Saturday, July 26th, 2025 at 10:54 AM
+
+# Functions --------------------------------------------------------------- {{{1
 
 program=${0##*/}
 
@@ -42,6 +44,8 @@ error() {
 	exit "$code"
 }
 
+# Variables --------------------------------------------------------------- {{{1
+
 index=1
 all=false
 best=false
@@ -59,6 +63,8 @@ qualities=(
 	'sddefault'
 	'maxresdefault'
 )
+
+# Command-line Argument Parsing ------------------------------------------- {{{1
 
 while getopts abfhHio:pq:w option
 do
@@ -99,6 +105,8 @@ done
 
 shift $((OPTIND-1))
 
+# Input Sanitization ------------------------------------------------------ {{{1
+
 video_id_length=11
 
 video_id_pattern="(?<=v=).{$video_id_length}(?=&|\s|\"|$)"
@@ -109,6 +117,8 @@ video_ids=$(
 	sed         $shorts_are_videos  $1   |
 	grep  -oP   $video_id_pattern       ||
 	cut   -c   -$video_id_length    $1   )
+
+# Main Processing --------------------------------------------------------- {{{1
 
 total_iterations=$(wc -l <<< "$video_ids")
 current_iteration=0
@@ -162,6 +172,11 @@ then whiptail --gauge "Downloading YouTube Thumbnails..." 6 60 0
 else cat - &>/dev/null
 fi
 )
+
+# Documentation ----------------------------------------------------------- {{{1
+
+# https://charlotte-ngs.github.io/2015/01/BashScriptPOD.html
+# http://bahut.alma.ch/2007/08/embedding-documentation-in-shell-script_16.html
 
 : <<='cut'
 =pod
@@ -367,4 +382,4 @@ Zachary Krepelka L<https://github.com/zachary-krepelka>
 
 =cut
 
-#
+# vim: tw=80 ts=8 sw=8 noet fdm=marker
