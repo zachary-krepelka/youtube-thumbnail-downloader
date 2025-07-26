@@ -5,7 +5,7 @@
 # DATE: Tuesday, April 2nd, 2024
 # ABOUT: a shell script to download YouTube thumbnails in bulk
 # ORIGIN: to be determined
-# UPDATED: Saturday, July 26th, 2025 at 8:49 AM
+# UPDATED: Saturday, July 26th, 2025 at 10:32 AM
 
 program=${0##*/}
 
@@ -19,15 +19,15 @@ usage() {
 	  -h             display this [h]elp message and exit
 	  -H             read documentation for this script then exit
 	  -o {DIR}       specifies the [o]utput directory
-	  -c             [c]ount the files as they download
 	  -f             [f]orcibly overwrite preexisting files
 	  -q {1,2,3,4,5} image [q]uality from worst to best
 	  -i             select image quality [i]nteractively
 	  -b             download [b]est image quality available
 	  -a             download image in [a]ll qualities
 	  -w             download [w]ebp instead of jpg
+	  -p             monitor [p]rogress
 
-	example: bash $program -b urls.txt
+	example: bash $program -bp urls.txt
 	USAGE
 }
 
@@ -46,8 +46,7 @@ index=1
 all=false
 best=false
 force=false
-counting=false
-count=0
+progress_bar=false
 ext=jpg
 dir=.
 
@@ -61,13 +60,12 @@ qualities=(
 	'maxresdefault'
 )
 
-while getopts abcfhHio:q:w option
+while getopts abfhHio:pq:w option
 do
 	case $option in
 
 		a) all=true;;
 		b) best=true;;
-		c) counting=true;;
 		f) force=true;;
 		h) usage; exit 0;;
 		H) documentation; exit 0;;
@@ -93,6 +91,7 @@ do
 			fi
 
 		;;
+		p) progress_bar=true;;
 		q) index=$OPTARG;;
 		w) ext=webp; alt=_webp;;
 	esac
@@ -111,12 +110,15 @@ video_ids=$(
 	grep  -oP   $video_id_pattern       ||
 	cut   -c   -$video_id_length    $1   )
 
-for video_id in $video_ids
-do
-	if $counting
+total_iterations=$(wc -l <<< "$video_ids")
+current_iteration=0
+
+( for video_id in $video_ids; do
+
+	if $progress_bar
 	then
-		((count++))
-		echo $count
+		percentage=$((++current_iteration * 100 / total_iterations))
+		echo $percentage
 	fi
 
 	url_prefix=https://img.youtube.com/vi$alt/$video_id
@@ -153,7 +155,13 @@ do
 	fi
 
 	wget $flags -O $image $url_prefix/${qualities[index-1]:-default}.$ext
-done
+
+done ) | (
+if $progress_bar
+then whiptail --gauge "Downloading YouTube Thumbnails..." 6 60 0
+else cat - &>/dev/null
+fi
+)
 
 : <<='cut'
 =pod
@@ -197,10 +205,6 @@ parallel the lowercase B<-h> in that they both provide help.
 This option specifies the [o]utput directory where the images will be
 downloaded.  The directory name can be given with or without a trailing slash.
 The directory must first exist; it will not be created for you.
-
-=item B<-c>
-
-Count the files as they download.  A quick-and-dirty, makeshift progress bar.
 
 =item B<-f>
 
@@ -270,6 +274,11 @@ created, but some of them will consequently be empty.
 YouTube thumbnails are formatted in two varieties: jpeg and webp.  This script
 downloads thumbnails in the jpeg file format by default. Pass the B<-w> flag to
 download the thumbnails in the [w]ebp file format instead.
+
+=item B<-p>
+
+This flag allows the user to montior the [p]rogress of a bulk download.
+It displays a progress bar using Whiptail.
 
 =back
 
