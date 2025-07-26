@@ -36,10 +36,9 @@ documentation() {
 }
 
 error() {
-	code="$1"
-	message="$2"
-
-	echo "$program: $message" 1>&2
+	local code="$1"
+	local message="$2"
+	echo "$program: error: $message" >&2
 	exit "$code"
 }
 
