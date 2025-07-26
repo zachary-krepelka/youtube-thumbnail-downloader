@@ -5,7 +5,7 @@
 # DATE: Tuesday, April 2nd, 2024
 # ABOUT: a shell script to download YouTube thumbnails in bulk
 # ORIGIN: to be determined
-# UPDATED: Thursday, July 17th, 2025 at 2:57 PM
+# UPDATED: Saturday, July 26th, 2025 at 8:49 AM
 
 program=${0##*/}
 
@@ -17,6 +17,7 @@ usage() {
 
 	options:
 	  -h             display this [h]elp message and exit
+	  -H             read documentation for this script then exit
 	  -o {DIR}       specifies the [o]utput directory
 	  -c             [c]ount the files as they download
 	  -f             [f]orcibly overwrite preexisting files
@@ -27,8 +28,11 @@ usage() {
 	  -w             download [w]ebp instead of jpg
 
 	example: bash $program -b urls.txt
-	documentation: perldoc $program
 	USAGE
+}
+
+documentation() {
+	pod2text "$0" | less -S +k
 }
 
 error() {
@@ -58,7 +62,7 @@ qualities=(
 	'maxresdefault'
 )
 
-while getopts abcfhio:q:w option
+while getopts abcfhHio:q:w option
 do
 	case $option in
 
@@ -67,6 +71,7 @@ do
 		c) counting=true;;
 		f) force=true;;
 		h) usage; exit 0;;
+		H) documentation; exit 0;;
 		i)
 			echo -e "From Worst to Best\n"
 			PS3=$'\n''Choose an image quality: '
@@ -182,6 +187,11 @@ Flags may be specified together, e.g., -bcf.
 =item B<-h>
 
 Display a [h]elp message and exit.
+
+=item B<-H>
+
+Display this documentation in a pager and then exit.  The uppercase B<-H> is to
+parallel the lowercase B<-h> in that they both provide help.
 
 =item B<-o> I<DIR>
 
