@@ -5,7 +5,7 @@
 # DATE: Tuesday, April 2nd, 2024
 # ABOUT: a shell script to bulk download YouTube thumbnails
 # ORIGIN: to be determined
-# UPDATED: Saturday, July 26th, 2025 at 10:54 AM
+# UPDATED: Wednesday, July 30th, 2025 at 1:43 AM
 
 # Functions --------------------------------------------------------------- {{{1
 
@@ -43,6 +43,17 @@ error() {
 	echo "$program: error: $message" >&2
 	exit "$code"
 }
+
+check_connection() {
+	local website="$1"
+	timeout 2 nc -zw1 "$website" 443 &>/dev/null ||
+		error 1 'no internet connectivity'
+	# https://unix.stackexchange.com/q/190513
+}
+
+# Precondition Checks ----------------------------------------------------- {{{1
+
+check_connection img.youtube.com
 
 # Variables --------------------------------------------------------------- {{{1
 
@@ -93,7 +104,7 @@ do
 		o)
 			dir="${OPTARG%/}"
 			if test ! -d "$dir"
-			then error 1 "\"$dir\" is not a directory."
+			then error 2 "\"$dir\" is not a directory."
 			fi
 
 		;;
@@ -305,7 +316,9 @@ The program exits with the following status codes.
 
 =item 0 successful completion
 
-=item 1 not a directory
+=item 1 no internet connection
+
+=item 2 not a directory
 
 The output directory specified by the B<-o> option does not exist. To fix this,
 you must create the directory and ensure that it's accessible with standard
