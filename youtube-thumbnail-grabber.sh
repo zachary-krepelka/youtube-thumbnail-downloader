@@ -5,7 +5,7 @@
 # DATE: Tuesday, April 2nd, 2024
 # ABOUT: a shell script to bulk download YouTube thumbnails
 # ORIGIN: to be determined
-# UPDATED: Wednesday, August 6th, 2025 at 12:48 PM
+# UPDATED: Wednesday, August 6th, 2025 at 1:28 PM
 
 # Functions --------------------------------------------------------------- {{{1
 
@@ -109,7 +109,7 @@ do
 		o)
 			dir="${OPTARG%/}"
 			if test ! -d "$dir"
-			then error 2 "\"$dir\" is not a directory."
+			then error 4 "\"$dir\" is not a directory"
 			fi
 
 		;;
@@ -122,6 +122,21 @@ done
 
 shift $((OPTIND - 1))
 
+if test $# -ne 1
+then error 2 'exactly one argument is required'
+fi
+
+input_file="$1"
+
+if test ! -e "$input_file"
+then error 3 "\"$input_file\" is not a file"
+fi
+
+# NOTE -e is preferred over -f so that process substitution can be used
+
+	# test -e <(echo file contents)   # true
+	# test -f <(echo file contents)   # false
+
 # Input Sanitization ------------------------------------------------------ {{{1
 
 video_id_length=11
@@ -131,9 +146,9 @@ video_id_pattern="(?<=v=).{$video_id_length}(?=&|\s|\"|$)"
 shorts_are_videos='s|shorts/|watch?v=|g'
 
 video_ids=$(
-	sed         $shorts_are_videos  $1   |
-	grep  -oP   $video_id_pattern       ||
-	cut   -c   -$video_id_length    $1   )
+	sed         $shorts_are_videos  "$input_file"   |
+	grep  -oP   $video_id_pattern                  ||
+	cut   -c   -$video_id_length    "$input_file"   )
 
 # Main Processing --------------------------------------------------------- {{{1
 
@@ -324,7 +339,11 @@ The program exits with the following status codes.
 
 =item 1 no internet connection
 
-=item 2 not a directory
+=item 2 missing argument
+
+=item 3 not a file
+
+=item 4 not a directory
 
 The output directory specified by the B<-o> option does not exist. To fix this,
 you must create the directory and ensure that it's accessible with standard
