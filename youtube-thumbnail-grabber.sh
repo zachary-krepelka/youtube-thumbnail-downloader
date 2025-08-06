@@ -5,7 +5,7 @@
 # DATE: Tuesday, April 2nd, 2024
 # ABOUT: a shell script to bulk download YouTube thumbnails
 # ORIGIN: to be determined
-# UPDATED: Wednesday, July 30th, 2025 at 1:43 AM
+# UPDATED: Wednesday, August 6th, 2025 at 12:48 PM
 
 # Functions --------------------------------------------------------------- {{{1
 
@@ -35,6 +35,11 @@ usage() {
 
 documentation() {
 	pod2text "$0" | less -S +k
+}
+
+warning() {
+	local message="$1"
+	echo "$program: warning: $message" >&2
 }
 
 error() {
@@ -77,7 +82,7 @@ qualities=(
 
 # Command-line Argument Parsing ------------------------------------------- {{{1
 
-while getopts abfhHio:pq:w option
+while getopts :abfhHio:pq:w option
 do
 	case $option in
 
@@ -111,10 +116,11 @@ do
 		p) progress_bar=true;;
 		q) index=$OPTARG;;
 		w) ext=webp; alt=_webp;;
+		*) warning "unknown option -$OPTARG";;
 	esac
 done
 
-shift $((OPTIND-1))
+shift $((OPTIND - 1))
 
 # Input Sanitization ------------------------------------------------------ {{{1
 
