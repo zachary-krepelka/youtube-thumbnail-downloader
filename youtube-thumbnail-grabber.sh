@@ -5,7 +5,7 @@
 # DATE: Tuesday, April 2nd, 2024
 # ABOUT: a shell script to bulk download YouTube thumbnails
 # ORIGIN: to be determined
-# UPDATED: Wednesday, August 6th, 2025 at 1:28 PM
+# UPDATED: Tuesday, August 26th, 2025 at 8:06 PM
 
 # Functions --------------------------------------------------------------- {{{1
 
@@ -49,14 +49,40 @@ error() {
 	exit "$code"
 }
 
+check_dependencies() {
+
+	local dependencies=(
+		cat cut grep less nc pod2text
+		sed timeout wc wget whiptail
+	)
+
+	local missing=
+
+	for cmd in "${dependencies[@]}"
+	do
+		if ! command -v "$cmd" &>/dev/null
+		then missing+="$cmd, "
+		fi
+	done
+
+	if test -n "$missing"
+	then error 1 "missing dependencies: ${missing%, }"
+	fi
+}
+
 check_connection() {
+
 	local website="$1"
+
 	timeout 2 nc -zw1 "$website" 443 &>/dev/null ||
-		error 1 'no internet connectivity'
+		error 2 'no internet connectivity'
+
 	# https://unix.stackexchange.com/q/190513
 }
 
 # Precondition Checks ----------------------------------------------------- {{{1
+
+check_dependencies # must be called before any external command
 
 check_connection img.youtube.com
 
@@ -109,7 +135,7 @@ do
 		o)
 			dir="${OPTARG%/}"
 			if test ! -d "$dir"
-			then error 4 "\"$dir\" is not a directory"
+			then error 5 "\"$dir\" is not a directory"
 			fi
 
 		;;
@@ -123,13 +149,13 @@ done
 shift $((OPTIND - 1))
 
 if test $# -ne 1
-then error 2 'exactly one argument is required'
+then error 3 'exactly one argument is required'
 fi
 
 input_file="$1"
 
 if test ! -e "$input_file"
-then error 3 "\"$input_file\" is not a file"
+then error 4 "\"$input_file\" is not a file"
 fi
 
 # NOTE -e is preferred over -f so that process substitution can be used
@@ -337,13 +363,15 @@ The program exits with the following status codes.
 
 =item 0 successful completion
 
-=item 1 no internet connection
+=item 1 missing dependencies
 
-=item 2 missing argument
+=item 2 no internet connectivity
 
-=item 3 not a file
+=item 3 missing or excess arguments
 
-=item 4 not a directory
+=item 4 not a file
+
+=item 5 not a directory
 
 The output directory specified by the B<-o> option does not exist. To fix this,
 you must create the directory and ensure that it's accessible with standard
