@@ -5,7 +5,7 @@
 	AUTHOR: Zachary Krepelka
 	DATE: Saturday, July 19th, 2025
 	ORIGIN: https://github.com/zachary-krepelka/youtube-thumbnail-downloader.git
-	UPDATED: Friday, August 29th, 2025 at 4:17 PM
+	UPDATED: Friday, August 29th, 2025 at 5:22 PM
 -->
 
 A shell script to bulk download YouTube thumbnail images
@@ -105,11 +105,11 @@ cd $DEFAULT_YOUTUBE_THUMBNAIL_REPOSITORY; yt init
 ```
 
 If you are a tmux user, I would suggest adding this to your
-`.tmux.conf`.
+`.tmux.conf`. This assumes that the scripts are in your path.
 
 ```bash
-bind y display-popup -w 90% -h 90% -E "bash -i -c 'yt -q get'"
-bind Y display-popup -w 90% -h 90% -E "bash -i -c 'yt -q search'"
+bind y display-popup -d "#{pane_current_path}" -E youtube-thumbnail-manager.sh -q get
+bind Y display-popup -d "#{pane_current_path}" -EB -w100% -h100% youtube-thumbnail-manager.sh -q search
 ```
 
 If you decide to rename these programs, perhaps because their names are
