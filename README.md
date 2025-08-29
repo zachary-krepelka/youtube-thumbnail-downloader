@@ -5,7 +5,7 @@
 	AUTHOR: Zachary Krepelka
 	DATE: Saturday, July 19th, 2025
 	ORIGIN: https://github.com/zachary-krepelka/youtube-thumbnail-downloader.git
-	UPDATED: Thursday, August 28th, 2025 at 7:59 PM
+	UPDATED: Friday, August 29th, 2025 at 3:25 PM
 -->
 
 A shell script to bulk download YouTube thumbnail images
@@ -169,27 +169,27 @@ usage: youtube-thumbnail-manager.sh [opts] <cmd>
 curate an offline repository of YouTube thumbnails
 
 options:
-  -h        display this [h]elp message and exit
-  -H        read documentation for this script then exit
-  -q        be [q]uiet: silence warnings but not errors
-  -r <dir>  use <dir> as the [r]epo instead of $PWD
+  -h          display this [h]elp message and exit
+  -H          read documentation for this script then exit
+  -q          be [q]uiet: silence warnings but not errors
+  -r <dir>    use <dir> as the [r]epo instead of $PWD
 
 commands:
-  init      create an empty thumbnail repository in working directory
-  add       add YouTube thumbnails to the index
-            opens a text editor to paste YouTube links into
-  scrape    retrieve metadata for thumbnails in the index
-  exec      downloads thumbnails in the index
-  get       add + scrape + exec
-  stats     report number of thumbnails and their disk usage
-  search    fuzzy find a thumbnail by its video's title
-            uses chafa for image previews
+  init        create an empty thumbnail repository in working directory
+  add         add YouTube thumbnails to the index
+              opens a text editor to paste YouTube links into
+  scrape [-f] retrieve metadata for thumbnails in the index
+  exec        downloads thumbnails in the index
+  get         add + scrape + exec
+  stats       report number of thumbnails and their disk usage
+  search      fuzzy find a thumbnail by its video's title
+              uses chafa for image previews
 ```
 
-This README file is intended to summarize the project altogether.  It
-does not go into the specific operation of each script.  I suggest you
-read the full documentation to understand what each option and command
-does in detail.  The `-H` flag is your friend.
+This README file is intended to summarize the project altogether.  It does not
+go into the specific operation of each script.  I suggest you read the full
+documentation with `-H` to understand what each option and command does in
+detail.
 
 ## Workflow
 

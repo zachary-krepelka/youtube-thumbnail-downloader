@@ -5,7 +5,7 @@
 # DATE: Sunday, July 28th, 2024
 # ABOUT: reposit YouTube thumbnails offline
 # ORIGIN: https://github.com/zachary-krepelka/youtube-thumbnail-downloader.git
-# UPDATED: Friday, August 29th, 2025 at 1:40 PM
+# UPDATED: Friday, August 29th, 2025 at 3:40 PM
 
 # Functions --------------------------------------------------------------- {{{1
 
@@ -17,21 +17,21 @@ usage() {
 	curate an offline repository of YouTube thumbnails
 
 	options:
-	  -h        display this [h]elp message and exit
-	  -H        read documentation for this script then exit
-	  -q        be [q]uiet: silence warnings but not errors
-	  -r <dir>  use <dir> as the [r]epo instead of \$PWD
+	  -h          display this [h]elp message and exit
+	  -H          read documentation for this script then exit
+	  -q          be [q]uiet: silence warnings but not errors
+	  -r <dir>    use <dir> as the [r]epo instead of \$PWD
 
 	commands:
-	  init      create an empty thumbnail repository in working directory
-	  add       add YouTube thumbnails to the index
-	            opens a text editor to paste YouTube links into
-	  scrape    retrieve metadata for thumbnails in the index
-	  exec      downloads thumbnails in the index
-	  get       add + scrape + exec
-	  stats     report number of thumbnails and their disk usage
-	  search    fuzzy find a thumbnail by its video's title
-	            uses chafa for image previews
+	  init        create an empty thumbnail repository in working directory
+	  add         add YouTube thumbnails to the index
+	              opens a text editor to paste YouTube links into
+	  scrape [-f] retrieve metadata for thumbnails in the index
+	  exec        downloads thumbnails in the index
+	  get         add + scrape + exec
+	  stats       report number of thumbnails and their disk usage
+	  search      fuzzy find a thumbnail by its video's title
+	              uses chafa for image previews
 	USAGE
 }
 
@@ -161,6 +161,11 @@ scrape_youtube_video_title() {
 	# Magic number 10 is the length of the string ' - YouTube'
 }
 
+warn_unknown_command_option() {
+
+	warning "option -$OPTARG unknown to $cmd command"
+}
+
 # Precondition Checks ----------------------------------------------------- {{{1
 
 check_dependencies # must be called before any external command
@@ -193,6 +198,7 @@ done
 shift $((OPTIND - 1))
 cmd="${1,,}"
 shift
+OPTIND=1
 
 # Location Handling ------------------------------------------------------- {{{1
 
@@ -267,6 +273,15 @@ case "$cmd" in
 	;;
 	scrape) # --------------------------------------------------------- {{{2
 
+		while getopts :f opt
+		do
+			case "$opt" in
+
+				f) sed -i '/^.\{11\}\t$/d' $meta/titles;;
+				*) warn_unknown_command_option;;
+			esac
+		done
+
 		cut_down <(cat $meta/{longs,shorts}) <(cut -f1 $meta/titles) |
 		while read -r video_id
 		do echo "$video_id"$'\t'"$(scrape_youtube_video_title $video_id)"
@@ -340,7 +355,6 @@ case "$cmd" in
 		DIFFERENCE $longs_diff       $shorts_diff
 		REPORT
 	;;
-
 	# }}}
 
 	*) error 5 "unknown command \"$cmd\"";;
@@ -496,15 +510,19 @@ assumed instead of giving an error.
 
 =head1 OPTIONS
 
-Global command-line options are specified before subcommands.  Some of them
-cause the program to exit without processing the subcommand (e.g., -h and -H),
-while others change the way that the program behaves (e.g., -q and -r).  In the
-former case, the subcommand is not required.  In the latter case, a subcommand
-is expected.  In the future, I may also implement subcommand-specific options
-which are contingent on the subcommand used.  These will be documented in the
-COMMANDS section.  Currently there are none.
+There are two types of options: global and specific.
 
 	program [global-options] <subcommand> [specific-options]
+
+Global options apply to the program as a whole.  They appear before the
+subcommand on the command line.  Some of them cause the program to exit
+prematurely without processing the subcommand (e.g., -h and -H), while others
+change the way that the program behaves (e.g., -q and -r).  In the former case,
+the subcommand is not required.  In the latter case, a subcommand is expected.
+
+Specific options are contingent on the subcommand used.  They appear after the
+subcommand and affect its behavior.  These command-specific options are
+documented in the COMMANDS section under each respective command.
 
 Enumerated below are the global command-line options in the same order as shown
 in the command-line help message for this program.
@@ -585,12 +603,21 @@ line-by-line, but this is most natural.
 This command is responsible for differentiating videos by their content type.
 The link is used to determine this.
 
-=item scrape
+=item scrape [-f]
 
 This command retrieves metadata for thumbnails in the index.  It scrapes each
-video's webpage for relevant information.  As of now, only the title of the
-video is acquired.  The titles will be used to allow the user to search for a
-thumbnail in their repository offline.
+video's webpage for relevant information.  Only videos in the index that have
+not already been scraped are scraped.
+
+As of now, only the title of the video is acquired.  The titles will be used to
+allow the user to search for a thumbnail in their repository offline.
+
+Sometimes an empty title is retrieved because the video was privated, deleted,
+or taken down.  In other instances, a blank title may be retrieved because the
+request was blocked.  Nothing can be done in the former case, but in the latter
+case, one could always try again.  That's what the B<-f> flag is for.  It
+[f]rees up thumbnails without titles to be scraped again.  (Recall that only
+videos in the index that have not already been scraped are scraped.)
 
 =item exec
 
@@ -803,10 +830,6 @@ be more unique, but I prefer C<.thumbnails> as a matter of aesthetics.
 There are a few.
 
 =over
-
-=item
-
-The B<-r> option does not work with the B<init> command.
 
 =item
 
