@@ -4,8 +4,8 @@
 # AUTHOR: Zachary Krepelka
 # DATE: Tuesday, April 2nd, 2024
 # ABOUT: a shell script to bulk download YouTube thumbnails
-# ORIGIN: to be determined
-# UPDATED: Tuesday, August 26th, 2025 at 8:06 PM
+# ORIGIN: https://github.com/zachary-krepelka/youtube-thumbnail-downloader.git
+# UPDATED: Thursday, August 28th, 2025 at 7:59 PM
 
 # Functions --------------------------------------------------------------- {{{1
 
