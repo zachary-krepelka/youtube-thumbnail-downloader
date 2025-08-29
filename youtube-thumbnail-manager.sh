@@ -5,7 +5,7 @@
 # DATE: Sunday, July 28th, 2024
 # ABOUT: reposit YouTube thumbnails offline
 # ORIGIN: https://github.com/zachary-krepelka/youtube-thumbnail-downloader.git
-# UPDATED: Friday, August 29th, 2025 at 1:14 PM
+# UPDATED: Friday, August 29th, 2025 at 1:40 PM
 
 # Functions --------------------------------------------------------------- {{{1
 
@@ -196,7 +196,7 @@ shift
 
 # Location Handling ------------------------------------------------------- {{{1
 
-if ! repo_exists
+if test "$cmd" != init && ! repo_exists
 then
 	repo="$DEFAULT_YOUTUBE_THUMBNAIL_REPOSITORY" # Environment Variable
 
