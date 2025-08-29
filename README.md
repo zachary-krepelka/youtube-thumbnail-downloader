@@ -5,7 +5,7 @@
 	AUTHOR: Zachary Krepelka
 	DATE: Saturday, July 19th, 2025
 	ORIGIN: https://github.com/zachary-krepelka/youtube-thumbnail-downloader.git
-	UPDATED: Friday, August 29th, 2025 at 5:22 PM
+	UPDATED: Friday, August 29th, 2025 at 5:31 PM
 -->
 
 A shell script to bulk download YouTube thumbnail images
@@ -14,9 +14,9 @@ A shell script to bulk download YouTube thumbnail images
 - [Overview](#overview)
 - [Requirements](#requirements)
 - [Installation](#installation)
-- [Configuration](#configuration)
 - [Getting Started](#getting-started)
 - [Usage](#usage)
+- [Configuration](#configuration)
 - [Workflow](#workflow)
 - [Use Cases](#use-cases)
 
@@ -84,41 +84,6 @@ put `manager` *in the same directory* as `grabber`, again making it
 executable.  Note that `grabber` is a self-contained program whereas
 `manager` depends on `grabber`.
 
-## Configuration
-
-For a seamless experience, you can add these lines to your `.bashrc` or
-equivalent.  You may have to alter them depending on your login shell,
-e.g., if you use Zsh.
-
-```bash
-alias yt=youtube-thumbnail-manager.sh
-complete -W 'init add scrape exec get stats search troubleshoot' yt
-export DEFAULT_YOUTUBE_THUMBNAIL_REPOSITORY=/directory/of/your/choice
-```
-
-If you define a default repository, it should be initialized before
-using the script as shown below.  To be clear, this should be done in an
-interactive shell, not in the `.bashrc`.
-
-```bash
-cd $DEFAULT_YOUTUBE_THUMBNAIL_REPOSITORY; yt init
-```
-
-If you are a tmux user, I would suggest adding this to your
-`.tmux.conf`. This assumes that the scripts are in your path.
-
-```bash
-bind y display-popup -d "#{pane_current_path}" -E youtube-thumbnail-manager.sh -q get
-bind Y display-popup -d "#{pane_current_path}" -EB -w100% -h100% youtube-thumbnail-manager.sh -q search
-```
-
-If you decide to rename these programs, perhaps because their names are
-too verbose, then you will need to edit the reference to `grabber` in
-the source code of `manager`.  CTRL+F should do the trick in a standard
-text editor.  I prefer to use an alias as shown above.
-
-Don't worry if this config does not make sense yet.
-
 ## Getting Started
 
 A command-line help message is obtained by passing the `-h` flag.
@@ -136,12 +101,10 @@ bash youtube-thumbnail-grabber.sh -H
 
 This README file is intended to summarize the project altogether.  It
 does not go into the specific operation of each script.  You should read
-the full documentation with `-H` to understand what each option and
-command does in detail.
-
-You can use the following command to read the full documentation in your
-terminal without actually having to save the scripts to your computer.
-Copy-and-paste it with the button to your right.
+the full documentation with `-H` for full understanding.  You can use
+the following command to read the documentation in your terminal without
+actually having to save the scripts to your computer.  Copy-and-paste it
+with the button to your right.
 
 ```bash
 for script in grabber manager; do wget -qO- https://raw.githubusercontent.com/zachary-krepelka/youtube-thumbnail-downloader/refs/heads/main/youtube-thumbnail-$script.sh | pod2text | less; done
@@ -198,6 +161,38 @@ commands:
               uses chafa for image previews
 ```
 
+## Configuration
+
+For a seamless experience, you can add these lines to your `.bashrc` or
+equivalent.  You may have to alter them depending on your login shell,
+e.g., if you use Zsh.
+
+```bash
+alias yt=youtube-thumbnail-manager.sh
+complete -W 'init add scrape exec get stats search troubleshoot' yt
+export DEFAULT_YOUTUBE_THUMBNAIL_REPOSITORY=/directory/of/your/choice
+```
+
+If you define a default repository, it should be initialized before
+using the script as shown below.  To be clear, this should be done in an
+interactive shell, not in the `.bashrc`.
+
+```bash
+cd $DEFAULT_YOUTUBE_THUMBNAIL_REPOSITORY; yt init
+```
+
+If you are a tmux user, I would suggest adding this to your
+`.tmux.conf`.  This assumes that the scripts are in your path.
+
+```bash
+bind y display-popup -d "#{pane_current_path}" -E youtube-thumbnail-manager.sh -q get
+bind Y display-popup -d "#{pane_current_path}" -EB -w100% -h100% youtube-thumbnail-manager.sh -q search
+```
+
+If you decide to rename these programs, perhaps because their names are
+too verbose, then you will need to edit the reference to `grabber` in
+the source code of `manager`.  CTRL+F should do the trick in a standard
+text editor.  I prefer to use an alias as shown above.
 
 ## Workflow
 
