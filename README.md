@@ -5,7 +5,7 @@
 	AUTHOR: Zachary Krepelka
 	DATE: Saturday, July 19th, 2025
 	ORIGIN: https://github.com/zachary-krepelka/youtube-thumbnail-downloader.git
-	UPDATED: Friday, August 29th, 2025 at 3:25 PM
+	UPDATED: Friday, August 29th, 2025 at 4:17 PM
 -->
 
 A shell script to bulk download YouTube thumbnail images
@@ -121,23 +121,35 @@ Don't worry if this config does not make sense yet.
 
 ## Getting Started
 
-`manager` builds on top of `grabber`, so its operation is more complex.
-I suggest you start out by trying `grabber` first.  A command-line help
-message is obtained by passing the `-h` flag.
+A command-line help message is obtained by passing the `-h` flag.
 
 ```bash
 bash youtube-thumbnail-grabber.sh -h
 ```
 
 Complete documentation can be read in the terminal by passing the `-H`
-flag.
+flag.  That's a capital H.
 
 ```bash
 bash youtube-thumbnail-grabber.sh -H
 ```
 
-Notice that the `-H` flag is capitalized to parallel the `-h` flag.
-These flags are available for both scripts.
+This README file is intended to summarize the project altogether.  It
+does not go into the specific operation of each script.  You should read
+the full documentation with `-H` to understand what each option and
+command does in detail.
+
+You can use the following command to read the full documentation in your
+terminal without actually having to save the scripts to your computer.
+Copy-and-paste it with the button to your right.
+
+```bash
+for script in grabber manager; do wget -qO- https://raw.githubusercontent.com/zachary-krepelka/youtube-thumbnail-downloader/refs/heads/main/youtube-thumbnail-$script.sh | pod2text | less; done
+```
+
+These help flags are available for both scripts.  Note that `manager`
+builds on top of `grabber`, so its operation is more complex.  I
+recommand that you try `grabber` first.
 
 ## Usage
 
@@ -186,10 +198,6 @@ commands:
               uses chafa for image previews
 ```
 
-This README file is intended to summarize the project altogether.  It does not
-go into the specific operation of each script.  I suggest you read the full
-documentation with `-H` to understand what each option and command does in
-detail.
 
 ## Workflow
 
@@ -206,7 +214,7 @@ reapeating as many times as desired.  When I am done, I just save the
 file and close the editor, which closes the pop-up dialog and initiates
 the download process in the background.
 
-You can read more about this workflow with `yt -H`.
+You can read more about this workflow in the documentation.
 
 ## Use Cases
 
