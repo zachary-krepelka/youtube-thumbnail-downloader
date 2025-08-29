@@ -5,7 +5,7 @@
 # DATE: Sunday, July 28th, 2024
 # ABOUT: reposit YouTube thumbnails offline
 # ORIGIN: https://github.com/zachary-krepelka/youtube-thumbnail-downloader.git
-# UPDATED: Thursday, August 28th, 2025 at 6:59 PM
+# UPDATED: Friday, August 29th, 2025 at 1:14 PM
 
 # Functions --------------------------------------------------------------- {{{1
 
@@ -219,19 +219,51 @@ case "$cmd" in
 	;;
 	add) # ------------------------------------------------------------ {{{2
 
+		declare -A patterns; video_id_length=11
+
+		patterns[long]="(v=|be/)\\K.{$video_id_length}"
+		patterns[short]="shorts/\\K.{$video_id_length}"
+		patterns[glob]="(v=|be/|shorts/)\\K.{$video_id_length}"
+
+		# These patterns intend to match IDs from URLs of the form
+		#
+		# 	1) https://www.youtube.com/watch?v={id}   (long)
+		# 	2) https://www.youtube.com/shorts/{id}    (short)
+		# 	3) https://youtu.be/{id}                  (long)
+
+		# NOTE about the existence of false positives
+		#
+		#	We use the context to determine the type of content.
+		#	Obviously, URL 2 is reserved for short-form content.
+		#	Typically, URLs 1 and 3 are reserved for long-form
+		#	content.  However, it is possible to rewrite URL 2 in
+		#	the form of URL 1 or URL 3, whereby a YouTube short will
+		#	play as if it were a standard YouTube video in a 16:9
+		#	aspect ratio.  If such a URL is entered, then the short
+		#	will be falsely identified as a long.
+
+		# NOTE about pattern flexibility
+		#
+		#	In constructing these patterns, we must be mindful of
+		#	the existence of additional query parameters.  We keep
+		#	the patterns unrestrictive for this reason.  In the case
+		#	of the first URL type, by excluding the question mark
+		#	from the regex (compare ?v= versus v=) we effectively
+		#	allow for URLs with query parameters specified in a
+		#	non-typical order, e.g.,
+		#
+		#		youtube.com/watch?list={id}&index={num}&v={id}
+
 		vipe | tee \
 			>(
-				grep -oP 'shorts/\K.{11}' |
+				grep -oP "${patterns[short]}" |
 					integrate_into $meta/shorts
 			 ) \
 			>(
-				grep -oP '(be/|v=)\K.{11}' |
+				grep -oP "${patterns[long]}" |
 					integrate_into $meta/longs
-			 ) \
-			> /dev/null
-
-			# Our magic number 11 is the number of
-			# characters in a YouTube video ID.
+			 ) |
+		grep -oP "${patterns[glob]}" | wc -l # number of items processed
 	;;
 	scrape) # --------------------------------------------------------- {{{2
 
@@ -541,7 +573,8 @@ them to be downloaded at a later time.
 
 It works by opening the command-line text editor determined by the environment
 variable EDITOR.  When this editor is closed, its contents are examined for
-YouTube video links.
+YouTube video links.  The command then outputs the total number of URLs
+processed.
 
 Full URLs should be pasted.  It does not matter what the link looks like, so
 long as it points to a YouTube video, either long or short.  The link can
