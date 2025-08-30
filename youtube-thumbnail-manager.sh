@@ -5,7 +5,7 @@
 # DATE: Sunday, July 28th, 2024
 # ABOUT: reposit YouTube thumbnails offline
 # ORIGIN: https://github.com/zachary-krepelka/youtube-thumbnail-downloader.git
-# UPDATED: Friday, August 29th, 2025 at 7:19 PM
+# UPDATED: Saturday, August 30th, 2025 at 10:45 AM
 
 # Functions --------------------------------------------------------------- {{{1
 
@@ -348,11 +348,25 @@ case "$cmd" in
 			declare ${fmt}_diff=$((${fmt}_indexed-${fmt}_downloaded))
 		done
 
-		# shellcheck disable=2154
-		column -tN ' ',LONGS,SHORTS <<-REPORT
-		INDEXED    $longs_indexed    $shorts_indexed
-		DOWNLOADED $longs_downloaded $shorts_downloaded
-		DIFFERENCE $longs_diff       $shorts_diff
+		     indexed=$((longs_indexed + shorts_indexed))
+		  downloaded=$((longs_downloaded + shorts_downloaded))
+		undownloaded=$((indexed - downloaded))
+		     scraped=$(wc -l < $meta/titles)
+		   unscraped=$((indexed - scraped))
+		      titled=$(grep -Pcvx '.{11}\t' $meta/titles)
+		    untitled=$((scraped - titled))
+
+		column -tN ' ',LONGS,SHORTS,TOTAL <<-REPORT
+		INDEXED    $longs_indexed    $shorts_indexed    $indexed
+		DOWNLOADED $longs_downloaded $shorts_downloaded $downloaded
+		DIFFERENCE $longs_diff       $shorts_diff       $undownloaded
+		REPORT
+
+		echo
+
+		column -tN ' ',NO,YES,TOTAL <<-REPORT
+		SCRAPED? $unscraped $scraped $indexed
+		TITLED?  $untitled  $titled  $scraped
 		REPORT
 	;;
 	# }}}
@@ -642,9 +656,11 @@ The disadvantage of issuing the low-level commands independently is that if they
 are issued at different times, then information could be lost.  For example,
 adding a thumbnail to the index but downloading it a week later would provide
 opportunity for the video to be privated, deleted, or taken down due to
-copyright.  This could pollute the repository with empty image files.
+copyright.  This could pollute the repository with empty image files and missing
+metadata.
 
-The C<get> command makes everything happen at once.
+The C<get> command makes everything happen at once, thereby circumventing these
+issues.
 
 =item stats
 
@@ -703,19 +719,42 @@ do
 
 =item troubleshoot
 
-Use this command to identify discrepancies between indexed and downloaded
-images.  This is relevant when the C<add> and C<exec> commands are used in a
-fashion as described in the documentation for the C<get> command.  See earlier.
+This command is purposefully excluded from the command-line help message.  It is
+more relevant to me, the programmer, than it is to you, the user.  My own
+repositories have grown unwieldy because they carry reminants from
+earlier stages in the development of this tool.
 
-The output of this command is a table like this.
+Use this command to
 
-		    LONGS  SHORTS
-	INDEXED     3014   218
-	DOWNLOADED  3014   218
-	DIFFERENCE  0      0
+=over
 
-A difference of zero indicates that nothing is wrong; all indexed images have
-been downloaded.
+=item * identify discrepancies between indexed and downloaded images
+
+=item * identify failures in the acquisition of thumbnail titles
+
+=back
+
+This is relevant when the C<add>, C<scrape>, and C<exec> commands are
+(inappropriately) used in a fashion as described in the documentation for the
+C<get> command.  See earlier.
+
+The output of this command is a series of tables.
+
+		    LONGS  SHORTS  TOTAL
+	INDEXED     3170   226     3396
+	DOWNLOADED  3170   226     3396
+	DIFFERENCE  0      0       0
+
+
+		  NO   YES   TOTAL
+	SCRAPED?  0    3396  3396
+	TITLED?   181  3215  3396
+
+The first table pertains to the success of the C<exec> command. The second table
+pertains to the success of the C<scrape> command.  In the first table, a
+difference of zero indicates that nothing is wrong; all indexed images have been
+downloaded.  The second table, especially its second row, pertains to the use of
+the scrape command's option C<-f>.  See earlier.
 
 =back
 
@@ -824,6 +863,11 @@ directory with the name C<.thumbnails>.  If this is an issue, you can change the
 name of the metadata directory in the source code of this program.  It is easy
 to change since it is defined as a variable.  As an example, C<.yt-thumbs> would
 be more unique, but I prefer C<.thumbnails> as a matter of aesthetics.
+
+You would also need to migrate existing repositories, e.g.,
+
+	cd my-repository
+	mv .thumbnails .yt-thumbs
 
 =head1 BUGS
 
