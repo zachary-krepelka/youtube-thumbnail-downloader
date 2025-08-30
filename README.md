@@ -5,7 +5,7 @@
 	AUTHOR: Zachary Krepelka
 	DATE: Saturday, July 19th, 2025
 	ORIGIN: https://github.com/zachary-krepelka/youtube-thumbnail-downloader.git
-	UPDATED: Friday, August 29th, 2025 at 5:31 PM
+	UPDATED: Friday, August 29th, 2025 at 8:05 PM
 -->
 
 A shell script to bulk download YouTube thumbnail images
@@ -54,7 +54,7 @@ For brevity I will refer to these as `grabber` and `manager`.
 These are prerequisite.
 
 * As the user, you should have familiarity with the command-line
-  interface.
+  interface and its conventions.
 
 * Your system must have the [Bourne Again Shell][2] installed.  This is
   a given on Linux.  MacOS ships with an oudated version of bash
@@ -112,7 +112,7 @@ for script in grabber manager; do wget -qO- https://raw.githubusercontent.com/za
 
 These help flags are available for both scripts.  Note that `manager`
 builds on top of `grabber`, so its operation is more complex.  I
-recommand that you try `grabber` first.
+recommend that you try `grabber` first.
 
 ## Usage
 
@@ -181,8 +181,8 @@ interactive shell, not in the `.bashrc`.
 cd $DEFAULT_YOUTUBE_THUMBNAIL_REPOSITORY; yt init
 ```
 
-If you are a tmux user, I would suggest adding this to your
-`.tmux.conf`.  This assumes that the scripts are in your path.
+Tmux users can add the following to a `.tmux.conf`.
+This assumes that the scripts are in your path.
 
 ```bash
 bind y display-popup -d "#{pane_current_path}" -E youtube-thumbnail-manager.sh -q get
@@ -205,7 +205,7 @@ with `yf<hint>`.  In the terminal, I type `CTRL+B Y` to open up a
 special tmux pop-up dialog if it is not already open.  The pop-up dialog
 opens to a text editor with a blank buffer.  I paste the YouTube link on
 my clipboard and move back into the web browser to continue the process,
-reapeating as many times as desired.  When I am done, I just save the
+repeating as many times as desired.  When I am done, I just save the
 file and close the editor, which closes the pop-up dialog and initiates
 the download process in the background.
 
@@ -229,6 +229,10 @@ future reference.  My script can be invoked on a bookmark file to
 download the thumbnails of every bookmarked YouTube video or YouTube
 Short.  When viewed in a grid layout using a file explorer, this can
 serve to visualize one's collection of bookmarked YouTube videos.
+
+```bash
+bash youtube-thumbnail-grabber.sh -bp -o view-me/ bookmarks.html
+```
 
 ### Personal Art Gallery
 
