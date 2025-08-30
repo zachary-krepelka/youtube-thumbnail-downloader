@@ -5,7 +5,7 @@
 	AUTHOR: Zachary Krepelka
 	DATE: Saturday, July 19th, 2025
 	ORIGIN: https://github.com/zachary-krepelka/youtube-thumbnail-downloader.git
-	UPDATED: Friday, August 29th, 2025 at 8:05 PM
+	UPDATED: Friday, August 29th, 2025 at 10:01 PM
 -->
 
 A shell script to bulk download YouTube thumbnail images
@@ -57,16 +57,26 @@ These are prerequisite.
   interface and its conventions.
 
 * Your system must have the [Bourne Again Shell][2] installed.  This is
-  a given on Linux.  MacOS ships with an oudated version of bash
-  preinstalled due to lisensing issues, so Mac users should probably
+  a given on Linux.  MacOS ships with an outdated version of bash
+  preinstalled due to licensing issues, so Mac users should probably
   install a more up-to-date version.  Windows users should install the
   Windows Subsystem for Linux.  Note that bash does not have to be the
   login shell; it just has to be present on the system, preferably
   up-to-date.
 
-* There are dependencies.  The programs will report an error if a
-  dependency is missing, which you can then install with your package
-  manager.
+* There are dependencies.  The two programs in this repository will
+  report an error if a dependency is missing, which you can then install
+  with your package manager.
+
+  * Among the dependencies which you can expect to be missing on your
+    system are the [moreutils][3], a well-known extension to the
+    [coreutils][4]. These are both collections of binaries.
+    Particularly, `ifne`, `sponge`, and `vipe` are required.  These are
+    usually installed together using `moreutils` as the keyword to your
+    package manager.
+
+  * You will also need `fzf`, `chafa`, `whiptail`, and ImageMagick's
+    `convert` among others.
 
 ## Installation
 
@@ -236,11 +246,11 @@ bash youtube-thumbnail-grabber.sh -bp -o view-me/ bookmarks.html
 
 ### Personal Art Gallery
 
-An [internet aesthetic][3] is a thematic style expressed online through
+An [internet aesthetic][5] is a thematic style expressed online through
 various elements such as color, fashion, imagery, music, objects,
-people, settings, etc.  Examples include [Vaporwave][4], [Synthwave][5],
-[Cyberpunk][6], [Future Funk][7], [Glitchcore][8], [Dreamcore][9],
-[Liminal Spaces][10], [Dark Academia][11], etc.  These aesthetics
+people, settings, etc.  Examples include [Vaporwave][6], [Synthwave][7],
+[Cyberpunk][8], [Future Funk][9], [Glitchcore][10], [Dreamcore][11],
+[Liminal Spaces][12], [Dark Academia][13], etc.  These aesthetics
 manifest in YouTube thumbnails.  A collection of thumbnails could
 constitute a personal art gallery for a digital native interested in
 internet culture.  They could serve to document one's exposure to
@@ -259,12 +269,14 @@ evaluating its title and relevancy to your interests or task at hand.
 
 [1]:  https://www.google.com/search?q=youtube+thumbnail+downloader
 [2]:  https://en.wikipedia.org/wiki/Bash_(Unix_shell)
-[3]:  https://en.wikipedia.org/wiki/Internet_aesthetics
-[4]:  https://aesthetics.fandom.com/wiki/Vaporwave
-[5]:  https://aesthetics.fandom.com/wiki/Synthwave
-[6]:  https://aesthetics.fandom.com/wiki/Cyberpunk
-[7]:  https://aesthetics.fandom.com/wiki/Future_Funk
-[8]:  https://aesthetics.fandom.com/wiki/Glitchcore
-[9]:  https://aesthetics.fandom.com/wiki/Dreamcore
-[10]: https://aesthetics.fandom.com/wiki/Liminal_Space
-[11]: https://aesthetics.fandom.com/wiki/Dark_Academia
+[3]:  https://archlinux.org/packages/extra/x86_64/moreutils
+[4]:  https://en.wikipedia.org/wiki/GNU_Core_Utilities
+[5]:  https://en.wikipedia.org/wiki/Internet_aesthetics
+[6]:  https://aesthetics.fandom.com/wiki/Vaporwave
+[7]:  https://aesthetics.fandom.com/wiki/Synthwave
+[8]:  https://aesthetics.fandom.com/wiki/Cyberpunk
+[9]:  https://aesthetics.fandom.com/wiki/Future_Funk
+[10]: https://aesthetics.fandom.com/wiki/Glitchcore
+[11]: https://aesthetics.fandom.com/wiki/Dreamcore
+[12]: https://aesthetics.fandom.com/wiki/Liminal_Space
+[13]: https://aesthetics.fandom.com/wiki/Dark_Academia
