@@ -5,7 +5,7 @@
 # DATE: Sunday, July 28th, 2024
 # ABOUT: reposit YouTube thumbnails offline
 # ORIGIN: https://github.com/zachary-krepelka/youtube-thumbnail-downloader.git
-# UPDATED: Friday, August 29th, 2025 at 3:40 PM
+# UPDATED: Friday, August 29th, 2025 at 7:19 PM
 
 # Functions --------------------------------------------------------------- {{{1
 
@@ -58,11 +58,11 @@ check_dependencies() {
 
 	local dependencies=(
 		cat chafa column convert cut
-		dirname du find fzf grep less ls
-		mkdir nc perl pod2text realpath
-		sed sort sponge tail tee timeout
-		touch vipe wc wget whiptail
-		xargs
+		dirname du find fzf grep ifne
+		less ls mkdir nc perl pod2text
+		realpath sed sort sponge tail
+		tee timeout touch vipe wc wget
+		whiptail xargs
 	)
 
 	local missing=
@@ -260,7 +260,7 @@ case "$cmd" in
 		#
 		#		youtube.com/watch?list={id}&index={num}&v={id}
 
-		vipe | tee \
+		vipe | ifne tee \
 			>(
 				grep -oP "${patterns[short]}" |
 					integrate_into $meta/shorts
@@ -819,7 +819,7 @@ repository.
 It was noted that the presence of the metadata subdirectory named C<.thumbnails>
 is what determines whether a given directory is a thumbnail repository.
 
-It is possible to have a false-positive if another application creates a
+It is possible to have a false positive if another application creates a
 directory with the name C<.thumbnails>.  If this is an issue, you can change the
 name of the metadata directory in the source code of this program.  It is easy
 to change since it is defined as a variable.  As an example, C<.yt-thumbs> would
