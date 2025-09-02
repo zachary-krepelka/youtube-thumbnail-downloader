@@ -165,7 +165,7 @@ commands:
               opens a text editor to paste YouTube links into
   scrape [-f] retrieve metadata for thumbnails in the index
   exec        downloads thumbnails in the index
-  get         add + scrape + exec
+  get [-b]    add + scrape + exec
   stats       report number of thumbnails and their disk usage
   search      fuzzy find a thumbnail by its video's title
               uses chafa for image previews
@@ -195,7 +195,7 @@ Tmux users can add the following to a `.tmux.conf`.
 This assumes that the scripts are in your path.
 
 ```bash
-bind y display-popup -d "#{pane_current_path}" -E youtube-thumbnail-manager.sh -q get -b
+bind y display-popup -d "#{pane_current_path}" -E youtube-thumbnail-manager.sh -q get
 bind Y display-popup -d "#{pane_current_path}" -EB -w100% -h100% youtube-thumbnail-manager.sh -q search
 ```
 
