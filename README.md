@@ -5,7 +5,7 @@
 	AUTHOR: Zachary Krepelka
 	DATE: Saturday, July 19th, 2025
 	ORIGIN: https://github.com/zachary-krepelka/youtube-thumbnail-downloader.git
-	UPDATED: Friday, August 29th, 2025 at 10:01 PM
+	UPDATED: Tuesday, September 2nd, 2025 at 11:02 AM
 -->
 
 A shell script to bulk download YouTube thumbnail images
@@ -195,7 +195,7 @@ Tmux users can add the following to a `.tmux.conf`.
 This assumes that the scripts are in your path.
 
 ```bash
-bind y display-popup -d "#{pane_current_path}" -E youtube-thumbnail-manager.sh -q get
+bind y display-popup -d "#{pane_current_path}" -E youtube-thumbnail-manager.sh -q get -b
 bind Y display-popup -d "#{pane_current_path}" -EB -w100% -h100% youtube-thumbnail-manager.sh -q search
 ```
 

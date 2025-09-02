@@ -5,7 +5,7 @@
 # DATE: Sunday, July 28th, 2024
 # ABOUT: reposit YouTube thumbnails offline
 # ORIGIN: https://github.com/zachary-krepelka/youtube-thumbnail-downloader.git
-# UPDATED: Saturday, August 30th, 2025 at 10:45 AM
+# UPDATED: Tuesday, September 2nd, 2025 at 11:02 AM
 
 # Functions --------------------------------------------------------------- {{{1
 
@@ -28,7 +28,7 @@ usage() {
 	              opens a text editor to paste YouTube links into
 	  scrape [-f] retrieve metadata for thumbnails in the index
 	  exec        downloads thumbnails in the index
-	  get         add + scrape + exec
+	  get [-b]    add + scrape + exec
 	  stats       report number of thumbnails and their disk usage
 	  search      fuzzy find a thumbnail by its video's title
 	              uses chafa for image previews
@@ -295,9 +295,28 @@ case "$cmd" in
 	;;
 	get) # ------------------------------------------------------------ {{{2
 
+		background=false
+
+		while getopts :b opt
+		do
+			case "$opt" in
+
+				b) background=true;;
+				*) warn_unknown_command_option;;
+			esac
+		done
+
 		bash "$wrapper" add
-		bash "$wrapper" scrape
-		bash "$wrapper" exec
+
+		{
+			bash "$wrapper" scrape
+			bash "$wrapper" exec
+		} &
+
+		if $background
+		then echo $!
+		else wait $!
+		fi
 	;;
 	stats) # ---------------------------------------------------------- {{{2
 
@@ -643,7 +662,7 @@ This command delegates the task of downloading thumbnails to another shell
 script, the program which this one wraps.  This command executes that script,
 hence the name.
 
-=item get
+=item get [-b]
 
 This is a composite command which executes the C<add>, C<scrape>, and C<exec>
 commands in sequence.  The C<get> command can be regarded as a high-level
@@ -661,6 +680,10 @@ metadata.
 
 The C<get> command makes everything happen at once, thereby circumventing these
 issues.
+
+The C<-b> flag backgrounds the C<scrape> and C<exec> commands so that the user
+does not have to wait after exiting their text editor.  Be careful using this
+flag; it could lead to race conditions.
 
 =item stats
 
