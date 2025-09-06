@@ -5,7 +5,7 @@
 	AUTHOR: Zachary Krepelka
 	DATE: Saturday, July 19th, 2025
 	ORIGIN: https://github.com/zachary-krepelka/youtube-thumbnail-downloader.git
-	UPDATED: Tuesday, September 2nd, 2025 at 11:02 AM
+	UPDATED: Saturday, September 6th, 2025 at 7:09 AM
 -->
 
 A shell script to bulk download YouTube thumbnail images
@@ -47,7 +47,8 @@ This repository is the home of two shell scripts.
    of this program and the workflow surrounding it are loosely similar
    to that of `git`, the ubiquitous version control system.
 
-For brevity I will refer to these as `grabber` and `manager`.
+For brevity I will refer to these as `grabber` and `manager`.  The third
+file with the `.tmux` extension is just a supplemental file.
 
 ## Requirements
 
@@ -191,12 +192,14 @@ interactive shell, not in the `.bashrc`.
 cd $DEFAULT_YOUTUBE_THUMBNAIL_REPOSITORY; yt init
 ```
 
-Tmux users can add the following to a `.tmux.conf`.
-This assumes that the scripts are in your path.
+Tmux users can source the keybindings file to obtain a more convenient
+interface around the `manager` script.
+
+* Press `prefix + y` then `g` to get thumbnails.
+* Press `prefix + y` then `s` to search thumbnails.
 
 ```bash
-bind y display-popup -d "#{pane_current_path}" -E youtube-thumbnail-manager.sh -q get
-bind Y display-popup -d "#{pane_current_path}" -EB -w100% -h100% youtube-thumbnail-manager.sh -q search
+tmux source-file youtube-thumbnail-keybinds.tmux
 ```
 
 If you decide to rename these programs, perhaps because their names are
