@@ -5,7 +5,7 @@
 # DATE: Tuesday, April 2nd, 2024
 # ABOUT: a shell script to bulk download YouTube thumbnails
 # ORIGIN: https://github.com/zachary-krepelka/youtube-thumbnail-downloader.git
-# UPDATED: Thursday, August 28th, 2025 at 7:59 PM
+# UPDATED: Saturday, September 6th, 2025 at 3:59 PM
 
 # Functions --------------------------------------------------------------- {{{1
 
@@ -34,7 +34,7 @@ usage() {
 }
 
 documentation() {
-	pod2text "$0" | less -S +k
+	pod2text "$0" | less -Sp '^[^ ].*$' +k
 }
 
 warning() {

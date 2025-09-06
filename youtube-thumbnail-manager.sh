@@ -5,7 +5,7 @@
 # DATE: Sunday, July 28th, 2024
 # ABOUT: reposit YouTube thumbnails offline
 # ORIGIN: https://github.com/zachary-krepelka/youtube-thumbnail-downloader.git
-# UPDATED: Tuesday, September 2nd, 2025 at 11:02 AM
+# UPDATED: Saturday, September 6th, 2025 at 4:00 PM
 
 # Functions --------------------------------------------------------------- {{{1
 
@@ -36,7 +36,7 @@ usage() {
 }
 
 documentation() {
-	pod2text "$0" | less -S +k
+	pod2text "$0" | less -Sp '^[^ ].*$' +k
 }
 
 warning() {
