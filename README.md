@@ -5,7 +5,7 @@
 	AUTHOR: Zachary Krepelka
 	DATE: Saturday, July 19th, 2025
 	ORIGIN: https://github.com/zachary-krepelka/youtube-thumbnail-downloader.git
-	UPDATED: Tuesday, December 9th, 2025 at 11:58 PM
+	UPDATED: Wednesday, December 10th, 2025 at 1:19 AM
 -->
 
 A shell script to bulk download YouTube thumbnail images
@@ -129,6 +129,8 @@ recommend that you try `grabber` first.
 
 Here is the command-line help message for `grabber`.
 
+<!-- read !bash youtube-thumbnail-grabber.sh -h -->
+
 ```text
 Bulk Download YouTube Thumbnails From the Command Line
 
@@ -155,6 +157,8 @@ Example:
 
 Here is the command-line help message for `manager`.
 
+<!-- read !bash youtube-thumbnail-manager.sh -h -->
+
 ```text
 Curate an Offline Repository of YouTube Thumbnails
 
@@ -166,15 +170,16 @@ Options:
   -r <dir>  use <dir> as the [r]epo instead of $PWD
 
 Commands:
-  init         create an empty thumbnail repository in working directory
-  add          add YouTube thumbnails to the index
-               opens a text editor to paste YouTube links into
-  scrape [-f]  retrieve metadata for thumbnails in the index
-  exec         downloads thumbnails in the index
-  get [-b]     add + scrape + exec
-  stats        report number of thumbnails and their disk usage
-  search       fuzzy find a thumbnail by its video's title
-               uses chafa for image previews
+  init           create an empty thumbnail repository in working directory
+  add [file(s)]  add YouTube thumbnails to the index
+                 links are read from [file(s)] if provided;
+                 otherwise, a text editor opens to paste links into
+  scrape [-f]    retrieve metadata for thumbnails in the index
+  exec           downloads thumbnails in the index
+  get [-b]       add + scrape + exec
+  stats          report number of thumbnails and their disk usage
+  search         fuzzy find a thumbnail by its video's title
+                 uses chafa for image previews
 
 Documentation:
   -h  display this [h]elp message and exit

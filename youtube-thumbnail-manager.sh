@@ -5,7 +5,7 @@
 # DATE: Sunday, July 28th, 2024
 # ABOUT: reposit YouTube thumbnails offline
 # ORIGIN: https://github.com/zachary-krepelka/youtube-thumbnail-downloader.git
-# UPDATED: Tuesday, December 9th, 2025 at 11:53 PM
+# UPDATED: Wednesday, December 10th, 2025 at 1:11 AM
 
 # Functions --------------------------------------------------------------- {{{1
 
@@ -23,15 +23,16 @@ usage() {
 	  -r <dir>  use <dir> as the [r]epo instead of \$PWD
 
 	Commands:
-	  init         create an empty thumbnail repository in working directory
-	  add          add YouTube thumbnails to the index
-	               opens a text editor to paste YouTube links into
-	  scrape [-f]  retrieve metadata for thumbnails in the index
-	  exec         downloads thumbnails in the index
-	  get [-b]     add + scrape + exec
-	  stats        report number of thumbnails and their disk usage
-	  search       fuzzy find a thumbnail by its video's title
-	               uses chafa for image previews
+	  init           create an empty thumbnail repository in working directory
+	  add [file(s)]  add YouTube thumbnails to the index
+	                 links are read from [file(s)] if provided;
+	                 otherwise, a text editor opens to paste links into
+	  scrape [-f]    retrieve metadata for thumbnails in the index
+	  exec           downloads thumbnails in the index
+	  get [-b]       add + scrape + exec
+	  stats          report number of thumbnails and their disk usage
+	  search         fuzzy find a thumbnail by its video's title
+	                 uses chafa for image previews
 
 	Documentation:
 	  -h  display this [h]elp message and exit
@@ -264,16 +265,23 @@ case "$cmd" in
 		#
 		#		youtube.com/watch?list={id}&index={num}&v={id}
 
-		vipe | ifne tee \
-			>(
-				grep -oP "${patterns[short]}" |
-					integrate_into $meta/shorts
-			 ) \
-			>(
-				grep -oP "${patterns[long]}" |
-					integrate_into $meta/longs
-			 ) |
-		grep -oP "${patterns[glob]}" | wc -l # number of items processed
+		for candidate
+		do test -f "$candidate" || error 6 "not a file: $candidate"
+		done
+
+		if test $# -gt 0
+		then cat "$@"
+		else vipe
+		fi | ifne tee \
+		>(
+			grep -oP "${patterns[short]}" |
+				integrate_into $meta/shorts
+		 ) \
+		>(
+			grep -oP "${patterns[long]}" |
+				integrate_into $meta/longs
+		 ) |
+		grep -oP "${patterns[glob]}" | sort -u | wc -l
 	;;
 	scrape) # --------------------------------------------------------- {{{2
 
@@ -310,7 +318,9 @@ case "$cmd" in
 			esac
 		done
 
-		bash "$wrapper" add
+		shift $((OPTIND - 1))
+
+		bash "$wrapper" add "$@" || exit
 
 		{
 			bash "$wrapper" scrape
@@ -620,25 +630,46 @@ shorts and longs.
 You can create multiple repositories, one per directory.  You could probably
 even nest them (I haven't vetted this myself).
 
-=item add
+=item add [files(s)]
 
-This command adds YouTube videos to an index.  The index is just a record /
-to-do list.  This command does I<not> download the thumbnails; it only marks
-them to be downloaded at a later time.
+This command adds YouTube videos to an index.  The index is just a staging area.
+This command does I<not> download the thumbnails; it only marks them to be
+downloaded at a later time.
 
-It works by opening the command-line text editor determined by the environment
-variable EDITOR.  When this editor is closed, its contents are examined for
-YouTube video links.  The command then outputs the total number of URLs
-processed.
+Videos can be added to the index in one of two ways.
 
-Full URLs should be pasted.  It does not matter what the link looks like, so
-long as it points to a YouTube video, either long or short.  The link can
-include extra query parameters like timestamps and playlist IDs.  It can even be
-link-shortened as L<youtu.be>.  The URLs do not necessarily have to be pasted
-line-by-line, but this is most natural.
+=over
 
-This command is responsible for differentiating videos by their content type.
-The link is used to determine this.
+=item 1)
+
+When invoked without file arguments, this command opens the command-line text
+editor determined by the environment variable EDITOR.  When this editor is
+closed, its contents are examined for YouTube video links.  You should
+copy-and-paste into it.
+
+=item 2)
+
+When invoked with file arguments, the links are read from those files instead of
+opening a text editor for interactive use.
+
+=back
+
+In either method, full URLs should be supplied.  It does not matter what a link
+looks like, so long as it points to a YouTube video, either long or short.  The
+link can include extra query parameters like timestamps and playlist IDs.  It
+can even be link-shortened as L<youtu.be>.  The URLs do not necessarily have to
+be supplied line-by-line, but this is most natural.  (Note that this command is
+responsible for differentiating videos by their content type.  The link is used
+to determine this.)
+
+The standard output of this command is the number of unique videos added to the
+index.
+
+When the B<-r> I<PATH> flag is supplied, any [file(s)] are understood to be
+relative to I<PATH>, not to the working directory.  This is unintuitive and will
+be will be subject to change in the future.  This also happens when the default
+repository is used, i.e., [file(s)] will be relative to the default repository
+if it is assumed.
 
 =item scrape [-f]
 
@@ -666,7 +697,7 @@ This command delegates the task of downloading thumbnails to another shell
 script, the program which this one wraps.  This command executes that script,
 hence the name.
 
-=item get [-b]
+=item get [-b] [file(s)]
 
 This is a composite command which executes the C<add>, C<scrape>, and C<exec>
 commands in sequence.  The C<get> command can be regarded as a high-level
@@ -688,6 +719,8 @@ issues.
 The C<-b> flag backgrounds the C<scrape> and C<exec> commands so that the user
 does not have to wait after exiting their text editor.  Be careful using this
 flag; it could lead to race conditions.
+
+Any [file(s)] are passed to the C<add> command.  See earlier.
 
 =item stats
 
@@ -803,6 +836,8 @@ The program exits with the following status codes.
 
 =item 5 unknown command
 
+=item 6 a non-file argument was passed to the add/get command
+
 =back
 
 =head1 EXAMPLES
@@ -914,6 +949,12 @@ errors on no connection irrespective of the command used.  This behavior should
 be redesigned so that the script only errors when internet connectivity is
 strictly required.  (The commands which require internet connectivity are
 scrape, exec, and get.)
+
+=item
+
+Files supplied to the add command should always be relative to the working
+directory.  This is not the current behavior.  See the documentation for the
+C<add> command where this is discussed further.
 
 =back
 
