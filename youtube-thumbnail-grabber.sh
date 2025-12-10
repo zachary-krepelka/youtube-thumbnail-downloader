@@ -5,7 +5,7 @@
 # DATE: Tuesday, April 2nd, 2024
 # ABOUT: a shell script to bulk download YouTube thumbnails
 # ORIGIN: https://github.com/zachary-krepelka/youtube-thumbnail-downloader.git
-# UPDATED: Saturday, September 6th, 2025 at 3:59 PM
+# UPDATED: Tuesday, December 9th, 2025 at 11:57 PM
 
 # Functions --------------------------------------------------------------- {{{1
 
@@ -14,22 +14,27 @@ program=${0##*/}
 usage() {
 	# NOTE options are listed here in the same order as in the documentation
 	cat <<-USAGE
-	usage: $program [options] <file (of urls)>
-	download YouTube thumbnails in bulk from the command line
+	Bulk Download YouTube Thumbnails From the Command Line
 
-	options:
-	  -h             display this [h]elp message and exit
-	  -H             read documentation for this script then exit
-	  -o {DIR}       specifies the [o]utput directory
-	  -f             [f]orcibly overwrite preexisting files
-	  -q {1,2,3,4,5} image [q]uality from worst to best
-	  -i             select image quality [i]nteractively
-	  -b             download [b]est image quality available
-	  -a             download image in [a]ll qualities
-	  -w             download [w]ebp instead of jpg
-	  -p             monitor [p]rogress
+	Usage:
+	  bash $program [options] <file (of urls)>
 
-	example: bash $program -bp urls.txt
+	Options:
+	  -o {DIR}        specifies the [o]utput directory
+	  -f              [f]orcibly overwrite preexisting files
+	  -q {1,2,3,4,5}  image [q]uality from worst to best
+	  -i              select image quality [i]nteractively
+	  -b              download [b]est image quality available
+	  -a              download image in [a]ll qualities
+	  -w              download [w]ebp instead of jpg
+	  -p              monitor [p]rogress
+
+	Documentation:
+	  -h  display this [h]elp message and exit
+	  -H  read documentation for this script then exit
+
+	Example:
+	  bash $program -bp urls.txt
 	USAGE
 }
 

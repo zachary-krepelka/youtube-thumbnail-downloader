@@ -5,7 +5,7 @@
 # DATE: Sunday, July 28th, 2024
 # ABOUT: reposit YouTube thumbnails offline
 # ORIGIN: https://github.com/zachary-krepelka/youtube-thumbnail-downloader.git
-# UPDATED: Saturday, September 6th, 2025 at 4:00 PM
+# UPDATED: Tuesday, December 9th, 2025 at 11:53 PM
 
 # Functions --------------------------------------------------------------- {{{1
 
@@ -13,25 +13,29 @@ program="${0##*/}"
 
 usage() {
 	cat <<-USAGE
-	usage: $program [opts] <cmd>
-	curate an offline repository of YouTube thumbnails
+	Curate an Offline Repository of YouTube Thumbnails
 
-	options:
-	  -h          display this [h]elp message and exit
-	  -H          read documentation for this script then exit
-	  -q          be [q]uiet: silence warnings but not errors
-	  -r <dir>    use <dir> as the [r]epo instead of \$PWD
+	Usage:
+	  bash $program [opts] <cmd>
 
-	commands:
-	  init        create an empty thumbnail repository in working directory
-	  add         add YouTube thumbnails to the index
-	              opens a text editor to paste YouTube links into
-	  scrape [-f] retrieve metadata for thumbnails in the index
-	  exec        downloads thumbnails in the index
-	  get [-b]    add + scrape + exec
-	  stats       report number of thumbnails and their disk usage
-	  search      fuzzy find a thumbnail by its video's title
-	              uses chafa for image previews
+	Options:
+	  -q        be [q]uiet: silence warnings but not errors
+	  -r <dir>  use <dir> as the [r]epo instead of \$PWD
+
+	Commands:
+	  init         create an empty thumbnail repository in working directory
+	  add          add YouTube thumbnails to the index
+	               opens a text editor to paste YouTube links into
+	  scrape [-f]  retrieve metadata for thumbnails in the index
+	  exec         downloads thumbnails in the index
+	  get [-b]     add + scrape + exec
+	  stats        report number of thumbnails and their disk usage
+	  search       fuzzy find a thumbnail by its video's title
+	               uses chafa for image previews
+
+	Documentation:
+	  -h  display this [h]elp message and exit
+	  -H  read documentation for this script then exit
 	USAGE
 }
 

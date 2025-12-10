@@ -5,7 +5,7 @@
 	AUTHOR: Zachary Krepelka
 	DATE: Saturday, July 19th, 2025
 	ORIGIN: https://github.com/zachary-krepelka/youtube-thumbnail-downloader.git
-	UPDATED: Saturday, September 6th, 2025 at 7:09 AM
+	UPDATED: Tuesday, December 9th, 2025 at 11:58 PM
 -->
 
 A shell script to bulk download YouTube thumbnail images
@@ -130,46 +130,55 @@ recommend that you try `grabber` first.
 Here is the command-line help message for `grabber`.
 
 ```text
-usage: youtube-thumbnail-grabber.sh [options] <file (of urls)>
-download YouTube thumbnails in bulk from the command line
+Bulk Download YouTube Thumbnails From the Command Line
 
-options:
-  -h             display this [h]elp message and exit
-  -H             read documentation for this script then exit
-  -o {DIR}       specifies the [o]utput directory
-  -f             [f]orcibly overwrite preexisting files
-  -q {1,2,3,4,5} image [q]uality from worst to best
-  -i             select image quality [i]nteractively
-  -b             download [b]est image quality available
-  -a             download image in [a]ll qualities
-  -w             download [w]ebp instead of jpg
-  -p             monitor [p]rogress
+Usage:
+  bash youtube-thumbnail-grabber.sh [options] <file (of urls)>
 
-example: bash youtube-thumbnail-grabber.sh -bp urls.txt
+Options:
+  -o {DIR}        specifies the [o]utput directory
+  -f              [f]orcibly overwrite preexisting files
+  -q {1,2,3,4,5}  image [q]uality from worst to best
+  -i              select image quality [i]nteractively
+  -b              download [b]est image quality available
+  -a              download image in [a]ll qualities
+  -w              download [w]ebp instead of jpg
+  -p              monitor [p]rogress
+
+Documentation:
+  -h  display this [h]elp message and exit
+  -H  read documentation for this script then exit
+
+Example:
+  bash youtube-thumbnail-grabber.sh -bp urls.txt
 ```
 
 Here is the command-line help message for `manager`.
 
 ```text
-usage: youtube-thumbnail-manager.sh [opts] <cmd>
-curate an offline repository of YouTube thumbnails
+Curate an Offline Repository of YouTube Thumbnails
 
-options:
-  -h          display this [h]elp message and exit
-  -H          read documentation for this script then exit
-  -q          be [q]uiet: silence warnings but not errors
-  -r <dir>    use <dir> as the [r]epo instead of $PWD
+Usage:
+  bash youtube-thumbnail-manager.sh [opts] <cmd>
 
-commands:
-  init        create an empty thumbnail repository in working directory
-  add         add YouTube thumbnails to the index
-              opens a text editor to paste YouTube links into
-  scrape [-f] retrieve metadata for thumbnails in the index
-  exec        downloads thumbnails in the index
-  get [-b]    add + scrape + exec
-  stats       report number of thumbnails and their disk usage
-  search      fuzzy find a thumbnail by its video's title
-              uses chafa for image previews
+Options:
+  -q        be [q]uiet: silence warnings but not errors
+  -r <dir>  use <dir> as the [r]epo instead of $PWD
+
+Commands:
+  init         create an empty thumbnail repository in working directory
+  add          add YouTube thumbnails to the index
+               opens a text editor to paste YouTube links into
+  scrape [-f]  retrieve metadata for thumbnails in the index
+  exec         downloads thumbnails in the index
+  get [-b]     add + scrape + exec
+  stats        report number of thumbnails and their disk usage
+  search       fuzzy find a thumbnail by its video's title
+               uses chafa for image previews
+
+Documentation:
+  -h  display this [h]elp message and exit
+  -H  read documentation for this script then exit
 ```
 
 ## Configuration
