@@ -5,7 +5,7 @@
 # DATE: Sunday, July 28th, 2024
 # ABOUT: reposit YouTube thumbnails offline
 # ORIGIN: https://github.com/zachary-krepelka/youtube-thumbnail-downloader.git
-# UPDATED: Tuesday, January 6th, 2026 at 3:19 AM
+# UPDATED: Tuesday, January 6th, 2026 at 3:39 AM
 
 # Functions --------------------------------------------------------------- {{{1
 
@@ -375,7 +375,7 @@ case "$cmd" in
 			type="$(dirname "$imagepath")";
 			type="${type##*/}";
 			if test "$type" = shorts
-			then convert "$imagepath" -gravity center -crop 9:16 -
+			then convert "$imagepath" -gravity center -crop 9:16 - 2>/dev/null
 			else cat "$imagepath"
 			fi |
 			chafa \
