@@ -5,7 +5,7 @@
 # DATE: Sunday, July 28th, 2024
 # ABOUT: reposit YouTube thumbnails offline
 # ORIGIN: https://github.com/zachary-krepelka/youtube-thumbnail-downloader.git
-# UPDATED: Wednesday, December 10th, 2025 at 1:28 AM
+# UPDATED: Tuesday, January 6th, 2026 at 3:19 AM
 
 # Functions --------------------------------------------------------------- {{{1
 
@@ -89,7 +89,7 @@ check_connection() {
 	local website="$1"
 
 	timeout 2 nc -zw1 "$website" 443 &>/dev/null ||
-		error 2 'no internet connectivity'
+		error 3 'no internet connectivity'
 
 	# https://unix.stackexchange.com/q/190513
 }
@@ -171,9 +171,22 @@ warn_unknown_command_option() {
 	warning "option -$OPTARG unknown to $cmd command"
 }
 
+has_perl_module() {
+
+	local module="$1"
+
+	perl -M$module -e 1 2>/dev/null
+
+	# https://stackoverflow.com/a/1039262
+}
+
 # Precondition Checks ----------------------------------------------------- {{{1
 
 check_dependencies # must be called before any external command
+
+if ! has_perl_module HTML::Entities
+then error 2 'perl module HTML:Entities required'
+fi
 
 check_connection img.youtube.com
 
@@ -181,7 +194,7 @@ wrapper="$(realpath "$0")"
 wrappee="$(dirname "$wrapper")/youtube-thumbnail-grabber.sh"
 
 if test ! -f "$wrappee"
-then error 3 'missing base script'
+then error 4 'missing base script'
 fi
 
 # Command-line Argument Parsing ------------------------------------------- {{{1
@@ -213,7 +226,7 @@ then
 
 	if repo_exists
 	then warning 'using default repository'
-	else error 4 'not a repository'
+	else error 5 'not a repository'
 	fi
 fi
 
@@ -266,7 +279,7 @@ case "$cmd" in
 		#		youtube.com/watch?list={id}&index={num}&v={id}
 
 		for candidate
-		do test -f "$candidate" || error 6 "not a file: $candidate"
+		do test -f "$candidate" || error 7 "not a file: $candidate"
 		done
 
 		if test $# -gt 0
@@ -404,7 +417,7 @@ case "$cmd" in
 	;;
 	# }}}
 
-	*) error 5 "unknown command \"$cmd\"";;
+	*) error 6 "unknown command \"$cmd\"";;
 esac
 
 # Documentation ----------------------------------------------------------- {{{1
@@ -828,17 +841,23 @@ The program exits with the following status codes.
 
 =item 1 missing dependencies
 
-=item 2 no internet connectivity
+=item 2 missing Perl module HTML::Entities
 
-=item 3 missing base script
+=item 3 no internet connectivity
 
-=item 4 not a repository
+=item 4 missing base script
 
-=item 5 unknown command
+=item 5 not a repository
 
-=item 6 a non-file argument was passed to the add/get command
+=item 6 unknown command
+
+=item 7 a non-file argument was passed to the add/get command
 
 =back
+
+You can install the Perl module on Arch Linux with this command.
+
+	sudo pacman -S perl-html-parser
 
 =head1 EXAMPLES
 
