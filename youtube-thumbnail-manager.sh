@@ -5,7 +5,7 @@
 # DATE: Sunday, July 28th, 2024
 # ABOUT: reposit YouTube thumbnails offline
 # ORIGIN: https://github.com/zachary-krepelka/youtube-thumbnail-downloader.git
-# UPDATED: Tuesday, January 6th, 2026 at 3:39 AM
+# UPDATED: Sunday, February 8th, 2026 at 2:31 AM
 
 # Functions --------------------------------------------------------------- {{{1
 
@@ -84,6 +84,38 @@ check_dependencies() {
 	fi
 }
 
+is_repo() {
+
+	local candidate="$1" status=1
+
+	test -d "$candidate" || return $status
+
+	for dir in $meta longs shorts
+	do
+		((status++))
+		test -d "$candidate"/$dir || return $status
+	done
+
+	return 0
+}
+
+enforce_repo_context() {
+
+	# defines a global variable called repo
+
+	if is_repo "$workspace"
+	then
+		repo="$workspace"
+
+	elif is_repo "$DEFAULT_YOUTUBE_THUMBNAIL_REPOSITORY"
+	then
+		repo="$DEFAULT_YOUTUBE_THUMBNAIL_REPOSITORY"
+		warning 'falling back to default repository'
+	else
+		error 6 "not a repository: $workspace"
+	fi
+}
+
 check_connection() {
 
 	local website="$1"
@@ -109,11 +141,6 @@ integrate_into() {
 	local file="$1"
 
 	cat "$file" - | sort -u | sponge "$file"
-}
-
-repo_exists() {
-
-	test -d "$repo" && test -d "${repo%/}/$meta"
 }
 
 #  +--DISCLAIMER----------------------------------- |
@@ -147,7 +174,7 @@ jpg_count() {
 
 jpg_size() {
 
-	find $* -maxdepth 1 -type f -iname '*.jpg' -print0 |
+	find "$@" -maxdepth 1 -type f -iname '*.jpg' -print0 |
 	du -ch --files0-from=- |
 	tail -1 | cut -f1
 
@@ -199,7 +226,7 @@ fi
 
 # Command-line Argument Parsing ------------------------------------------- {{{1
 
-repo="$PWD"
+workspace="$PWD"
 meta=.thumbnails
 
 while getopts :hHr:q opt
@@ -208,7 +235,11 @@ do
 		h) usage; exit 0;;
 		H) documentation; exit 0;;
 		q) quiet=;;
-		r) repo="$OPTARG";;
+		r)
+			workspace="$(realpath -m "$OPTARG")"
+
+			test -d "$workspace" || error 5 'not a directory'
+		;;
 		*) warning "unknown option -$OPTARG";;
 	esac
 done
@@ -218,30 +249,19 @@ cmd="${1,,}"
 shift
 OPTIND=1
 
-# Location Handling ------------------------------------------------------- {{{1
-
-if test "$cmd" != init && ! repo_exists
-then
-	repo="$DEFAULT_YOUTUBE_THUMBNAIL_REPOSITORY" # Environment Variable
-
-	if repo_exists
-	then warning 'using default repository'
-	else error 5 'not a repository'
-	fi
-fi
-
-cd "$repo"
-
 # Command Processing ------------------------------------------------------ {{{1
 
 case "$cmd" in
 
 	init) # ----------------------------------------------------------- {{{2
 
-		mkdir -p $meta longs shorts
-		touch $meta/{longs,shorts,titles}
+		mkdir -p "$workspace"/{$meta,longs,shorts}
+
+		touch "$workspace"/$meta/{longs,shorts,titles}
 	;;
 	add) # ------------------------------------------------------------ {{{2
+
+		enforce_repo_context
 
 		declare -A patterns; video_id_length=11
 
@@ -279,7 +299,7 @@ case "$cmd" in
 		#		youtube.com/watch?list={id}&index={num}&v={id}
 
 		for candidate
-		do test -f "$candidate" || error 7 "not a file: $candidate"
+		do test -f "$candidate" || error 8 "not a file: $candidate"
 		done
 
 		if test $# -gt 0
@@ -288,34 +308,38 @@ case "$cmd" in
 		fi | ifne tee \
 		>(
 			grep -oP "${patterns[short]}" |
-				integrate_into $meta/shorts
+				integrate_into "$repo"/$meta/shorts
 		 ) \
 		>(
 			grep -oP "${patterns[long]}" |
-				integrate_into $meta/longs
+				integrate_into "$repo"/$meta/longs
 		 ) |
 		grep -oP "${patterns[glob]}" | sort -u | wc -l
 	;;
 	scrape) # --------------------------------------------------------- {{{2
 
+		enforce_repo_context
+
 		while getopts :f opt
 		do
 			case "$opt" in
 
-				f) sed -i '/^.\{11\}\t$/d' $meta/titles;;
+				f) sed -i '/^.\{11\}\t$/d' "$repo"/$meta/titles;;
 				*) warn_unknown_command_option;;
 			esac
 		done
 
-		cut_down <(cat $meta/{longs,shorts}) <(cut -f1 $meta/titles) |
+		cut_down <(cat "$repo"/$meta/{longs,shorts}) <(cut -f1 "$repo"/$meta/titles) |
 		while read -r video_id
 		do echo "$video_id"$'\t'"$(scrape_youtube_video_title $video_id)"
-		done | integrate_into $meta/titles
+		done | integrate_into "$repo"/$meta/titles
 	;;
 	exec) # ----------------------------------------------------------- {{{2
 
+		enforce_repo_context
+
 		for fmt in longs shorts
-		do bash "$wrappee" -bo $fmt $meta/$fmt
+		do bash "$wrappee" -bo "$repo"/$fmt "$repo"/$meta/$fmt
 		done
 	;;
 	get) # ------------------------------------------------------------ {{{2
@@ -333,11 +357,11 @@ case "$cmd" in
 
 		shift $((OPTIND - 1))
 
-		bash "$wrapper" add "$@" || exit
+		bash "$wrapper" -r "$workspace" add "$@" || exit
 
 		{
-			bash "$wrapper" scrape
-			bash "$wrapper" exec
+			bash "$wrapper" -r "$workspace" scrape
+			bash "$wrapper" -r "$workspace" exec
 		} &
 
 		if $background
@@ -347,16 +371,18 @@ case "$cmd" in
 	;;
 	stats) # ---------------------------------------------------------- {{{2
 
+		enforce_repo_context
+
 		for fmt in longs shorts
 		do
-			declare ${fmt}_cnt=$(jpg_count $fmt)
-			declare ${fmt}_size=$(jpg_size $fmt)
+			declare ${fmt}_cnt=$(jpg_count "$repo"/$fmt)
+			declare ${fmt}_size=$(jpg_size "$repo"/$fmt)
 		done
 
 		# shellcheck disable=2154
 		{
 		total_cnt=$((longs_cnt + shorts_cnt))
-		total_size=$(jpg_size longs shorts)
+		total_size=$(jpg_size "$repo"/{longs,shorts})
 
 		column -tN ' ',LONGS,SHORTS,TOTAL <<-REPORT
 		COUNT $longs_cnt  $shorts_cnt  $total_cnt
@@ -365,6 +391,10 @@ case "$cmd" in
 		}
 	;;
 	search) # --------------------------------------------------------- {{{2
+
+		enforce_repo_context
+
+		cd "$repo"
 
 		fzf -m --with-nth=2.. --bind ctrl-space:refresh-preview --preview '
 			imagepath="$(
@@ -387,19 +417,21 @@ case "$cmd" in
 	;;
 	troubleshoot) # --------------------------------------------------- {{{2
 
+		enforce_repo_context
+
 		for fmt in longs shorts
 		do
-			declare ${fmt}_indexed=$(wc -l < $meta/$fmt)
-			declare ${fmt}_downloaded=$(jpg_count $fmt)
+			declare ${fmt}_indexed=$(wc -l < "$repo"/$meta/$fmt)
+			declare ${fmt}_downloaded=$(jpg_count "$repo"/$fmt)
 			declare ${fmt}_diff=$((${fmt}_indexed-${fmt}_downloaded))
 		done
 
 		     indexed=$((longs_indexed + shorts_indexed))
 		  downloaded=$((longs_downloaded + shorts_downloaded))
 		undownloaded=$((indexed - downloaded))
-		     scraped=$(wc -l < $meta/titles)
+		     scraped=$(wc -l < "$repo"/$meta/titles)
 		   unscraped=$((indexed - scraped))
-		      titled=$(grep -Pcvx '.{11}\t' $meta/titles)
+		      titled=$(grep -Pcvx '.{11}\t' "$repo"/$meta/titles)
 		    untitled=$((scraped - titled))
 
 		column -tN ' ',LONGS,SHORTS,TOTAL <<-REPORT
@@ -417,7 +449,7 @@ case "$cmd" in
 	;;
 	# }}}
 
-	*) error 6 "unknown command \"$cmd\"";;
+	*) error 7 "unknown command \"$cmd\"";;
 esac
 
 # Documentation ----------------------------------------------------------- {{{1
@@ -678,12 +710,6 @@ to determine this.)
 The standard output of this command is the number of unique videos added to the
 index.
 
-When the B<-r> I<PATH> flag is supplied, any [file(s)] are understood to be
-relative to I<PATH>, not to the working directory.  This is unintuitive and will
-be will be subject to change in the future.  This also happens when the default
-repository is used, i.e., [file(s)] will be relative to the default repository
-if it is assumed.
-
 =item scrape [-f]
 
 This command retrieves metadata for thumbnails in the index.  It scrapes each
@@ -847,11 +873,13 @@ The program exits with the following status codes.
 
 =item 4 missing base script
 
-=item 5 not a repository
+=item 5 not a directory
 
-=item 6 unknown command
+=item 6 not a repository
 
-=item 7 a non-file argument was passed to the add/get command
+=item 7 unknown command
+
+=item 8 a non-file argument was passed to the add/get command
 
 =back
 
@@ -952,30 +980,11 @@ You would also need to migrate existing repositories, e.g.,
 
 =head1 BUGS
 
-There are a few.
-
-=over
-
-=item
-
-The B<-r> option has poor error messages.  Its behavior in regard to falling
-back to the default repository is unintuitive and poorly documented.
-
-=item
-
 Only a handful of subcommands require internet connectivity, yet this script
 errors on no connection irrespective of the command used.  This behavior should
 be redesigned so that the script only errors when internet connectivity is
 strictly required.  (The commands which require internet connectivity are
 scrape, exec, and get.)
-
-=item
-
-Files supplied to the add command should always be relative to the working
-directory.  This is not the current behavior.  See the documentation for the
-C<add> command where this is discussed further.
-
-=back
 
 =head1 AUTHOR
 
