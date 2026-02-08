@@ -5,11 +5,17 @@
 # DATE: Sunday, July 28th, 2024
 # ABOUT: reposit YouTube thumbnails offline
 # ORIGIN: https://github.com/zachary-krepelka/youtube-thumbnail-downloader.git
-# UPDATED: Sunday, February 8th, 2026 at 2:31 AM
+# UPDATED: Sunday, February 8th, 2026 at 4:13 AM
 
-# Functions --------------------------------------------------------------- {{{1
+# Variables --------------------------------------------------------------- {{{1
 
 program="${0##*/}"
+
+workspace="$PWD"
+
+meta=.thumbnails
+
+# Functions --------------------------------------------------------------- {{{1
 
 usage() {
 	cat <<-USAGE
@@ -45,7 +51,7 @@ documentation() {
 }
 
 warning() {
-	if test -v quiet
+	if $opt_quiet
 	then return
 	fi
 	local message="$1"
@@ -226,23 +232,42 @@ fi
 
 # Command-line Argument Parsing ------------------------------------------- {{{1
 
-workspace="$PWD"
-meta=.thumbnails
+declare opt_{help,doc,quiet,target,invalid}=false
 
-while getopts :hHr:q opt
+while getopts :Hhqr: opt
 do
 	case "$opt" in
-		h) usage; exit 0;;
-		H) documentation; exit 0;;
-		q) quiet=;;
-		r)
-			workspace="$(realpath -m "$OPTARG")"
 
-			test -d "$workspace" || error 5 'not a directory'
-		;;
-		*) warning "unknown option -$OPTARG";;
+		H) opt_doc=true;;
+		h) opt_help=true;;
+		q) opt_quiet=true;;
+		r) opt_target=true; workspace="$OPTARG";;
+		*) opt_invalid=true; invalid_opt+="$OPTARG";;
 	esac
 done
+
+if $opt_doc
+then
+	documentation
+	exit 0
+fi
+
+if $opt_help || test $# -eq 0
+then
+	usage
+	exit 0
+fi
+
+if $opt_target
+then
+	test -d "$workspace" || error 5 "not a directory: $workspace"
+
+	workspace="$(realpath -m "$workspace")" # strip trailing slashes
+fi
+
+if $opt_invalid
+then warning "unknown option -$invalid_opt"
+fi
 
 shift $((OPTIND - 1))
 cmd="${1,,}"
@@ -320,14 +345,20 @@ case "$cmd" in
 
 		enforce_repo_context
 
+		opt_force=false
+
 		while getopts :f opt
 		do
 			case "$opt" in
 
-				f) sed -i '/^.\{11\}\t$/d' "$repo"/$meta/titles;;
+				f) opt_force=true;;
 				*) warn_unknown_command_option;;
 			esac
 		done
+
+		if $opt_force
+		then sed -i '/^.\{11\}\t$/d' "$repo"/$meta/titles
+		fi
 
 		cut_down <(cat "$repo"/$meta/{longs,shorts}) <(cut -f1 "$repo"/$meta/titles) |
 		while read -r video_id
@@ -344,13 +375,13 @@ case "$cmd" in
 	;;
 	get) # ------------------------------------------------------------ {{{2
 
-		background=false
+		opt_background=false
 
 		while getopts :b opt
 		do
 			case "$opt" in
 
-				b) background=true;;
+				b) opt_background=true;;
 				*) warn_unknown_command_option;;
 			esac
 		done
@@ -364,7 +395,7 @@ case "$cmd" in
 			bash "$wrapper" -r "$workspace" exec
 		} &
 
-		if $background
+		if $opt_background
 		then echo $!
 		else wait $!
 		fi
