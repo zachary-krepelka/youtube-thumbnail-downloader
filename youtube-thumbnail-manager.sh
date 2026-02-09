@@ -5,7 +5,7 @@
 # DATE: Sunday, July 28th, 2024
 # ABOUT: reposit YouTube thumbnails offline
 # ORIGIN: https://github.com/zachary-krepelka/youtube-thumbnail-downloader.git
-# UPDATED: Sunday, February 8th, 2026 at 4:13 AM
+# UPDATED: Sunday, February 8th, 2026 at 7:40 PM
 
 # Variables --------------------------------------------------------------- {{{1
 
@@ -29,16 +29,17 @@ usage() {
 	  -r <dir>  use <dir> as the [r]epo instead of \$PWD
 
 	Commands:
-	  init                create an empty thumbnail repository in working directory
-	  add [file(s)]       add YouTube thumbnails to the index
-	                      links are read from [file(s)] if provided;
-	                      otherwise, a text editor opens to paste links into
-	  scrape [-f]         retrieve metadata for thumbnails in the index
-	  exec                downloads thumbnails in the index
-	  get [-b] [file(s)]  add + scrape + exec
-	  stats               report number of thumbnails and their disk usage
-	  search              fuzzy find a thumbnail by its video's title
-	                      uses chafa for image previews
+	  init                  create an empty thumbnail repository in working directory
+	  add [file(s)]         add YouTube thumbnails to the index
+	                        links are read from [file(s)] if provided;
+	                        otherwise, a text editor opens to paste links into
+	  scrape [-f]           retrieve metadata for thumbnails in the index
+	  exec                  downloads thumbnails in the index
+	  get [-b] [file(s)]    add + scrape + exec
+	  stats                 report number of thumbnails and their disk usage
+	  search                fuzzy find a thumbnail by its video's title
+	                        uses chafa for image previews
+	  absorb [-dnp] <repo>  pull in images from another repository
 
 	Documentation:
 	  -h  display this [h]elp message and exit
@@ -50,19 +51,42 @@ documentation() {
 	pod2text "$0" | less -Sp '^[^ ].*$' +k
 }
 
-warning() {
-	if $opt_quiet
-	then return
-	fi
-	local message="$1"
-	echo "$program: warning: $message" >&2
-}
-
 error() {
 	local code="$1"
 	local message="$2"
 	echo "$program: error: $message" >&2
 	exit "$code"
+}
+
+warn() {
+	# uses global variable $opt_quiet
+
+	$opt_quiet && return
+	local message="$1"
+	echo "$program: warning: $message" >&2
+}
+
+error_cmd() {
+
+	# uses global variable $cmd
+
+	local code="$1" message="$2"
+	error "$code" "command $cmd: $message"
+}
+
+warn_cmd() {
+
+	# uses global variable $cmd
+
+	local message="$1"
+	warn "command $cmd: $message"
+}
+
+warn_unknown_cmd_opt() {
+
+	# uses global variable $OPTARG
+
+	warn_cmd "unknown option -$OPTARG"
 }
 
 check_dependencies() {
@@ -71,9 +95,9 @@ check_dependencies() {
 		cat chafa column convert cut
 		dirname du find fzf grep ifne
 		less ls mkdir nc perl pod2text
-		realpath sed sort sponge tail
-		tee timeout touch vipe wc wget
-		whiptail xargs
+		realpath rm rsync sed sort
+		sponge tail tee timeout touch
+		vipe wc wget whiptail xargs
 	)
 
 	local missing=
@@ -116,7 +140,7 @@ enforce_repo_context() {
 	elif is_repo "$DEFAULT_YOUTUBE_THUMBNAIL_REPOSITORY"
 	then
 		repo="$DEFAULT_YOUTUBE_THUMBNAIL_REPOSITORY"
-		warning 'falling back to default repository'
+		warn 'falling back to default repository'
 	else
 		error 6 "not a repository: $workspace"
 	fi
@@ -146,7 +170,9 @@ integrate_into() {
 
 	local file="$1"
 
-	cat "$file" - | sort -u | sponge "$file"
+	shift
+
+	cat "$file" "${@:--}" | sort -u | sponge "$file"
 }
 
 #  +--DISCLAIMER----------------------------------- |
@@ -197,11 +223,6 @@ scrape_youtube_video_title() {
 		perl -MHTML::Entities -pe 'decode_entities($_);'
 
 	# Magic number 10 is the length of the string ' - YouTube'
-}
-
-warn_unknown_command_option() {
-
-	warning "option -$OPTARG unknown to $cmd command"
 }
 
 has_perl_module() {
@@ -266,7 +287,7 @@ then
 fi
 
 if $opt_invalid
-then warning "unknown option -$invalid_opt"
+then warn "unknown global option -$invalid_opt"
 fi
 
 shift $((OPTIND - 1))
@@ -324,8 +345,13 @@ case "$cmd" in
 		#		youtube.com/watch?list={id}&index={num}&v={id}
 
 		for candidate
-		do test -f "$candidate" || error 8 "not a file: $candidate"
+		do test -e "$candidate" || error_cmd 8 "not a file: $candidate"
 		done
+
+		# NOTE -e is preferred over -f to allow for process substitution
+
+			# test -e <(echo file contents)   # true
+			# test -f <(echo file contents)   # false
 
 		if test $# -gt 0
 		then cat "$@"
@@ -352,7 +378,7 @@ case "$cmd" in
 			case "$opt" in
 
 				f) opt_force=true;;
-				*) warn_unknown_command_option;;
+				*) warn_unknown_cmd_opt;;
 			esac
 		done
 
@@ -382,7 +408,7 @@ case "$cmd" in
 			case "$opt" in
 
 				b) opt_background=true;;
-				*) warn_unknown_command_option;;
+				*) warn_unknown_cmd_opt;;
 			esac
 		done
 
@@ -446,6 +472,69 @@ case "$cmd" in
 		cut -f1 |
 		xargs -I video_id find ~+ -name 'video_id.jpg'
 	;;
+	absorb) # --------------------------------------------------------- {{{2
+
+		enforce_repo_context
+
+		declare opt_{delete,dryrun,progress}=false
+
+		while getopts :dnp opt
+		do
+			case "$opt" in
+
+				d) opt_delete=true;;
+				n) opt_dryrun=true;;
+				p) opt_progress=true;;
+				*) warn_unknown_cmd_opt;;
+			esac
+		done
+
+		shift $((OPTIND - 1))
+
+		test $# -eq 1 || error_cmd 9 'exactly one argument is required'
+
+		primary="$repo"
+		secondary="$(realpath -m "$1")"
+
+		is_repo "$secondary" ||
+			error_cmd 10 'argument is not a thumbnail repository'
+
+		if $opt_dryrun
+		then
+			for fmt in longs shorts
+			do
+				cut_down {"$secondary","$primary"}/$meta/$fmt |
+					echo would index $(wc -l) $fmt
+			done
+
+			$opt_delete && echo would delete "$secondary"
+
+			# TODO rsync --dry-run ???
+
+			exit 0
+		fi
+
+		rsync_flags='--archive --ignore-existing'
+
+		$opt_progress && rsync_flags+=' --no-i-r --info=progress2'
+
+		for fmt in longs shorts
+		do
+			integrate_into {"$primary","$secondary"}/$meta/$fmt
+
+			$opt_progress && echo $fmt
+
+			rsync $rsync_flags {"$secondary","$primary"}/$fmt/
+		done
+
+		integrate_into {"$primary","$secondary"}/$meta/titles
+
+		if $opt_delete
+		then
+			echo rm -rI "$secondary"
+			     rm -rI "$secondary" # always prompt
+		fi
+	;;
 	troubleshoot) # --------------------------------------------------- {{{2
 
 		enforce_repo_context
@@ -501,7 +590,7 @@ youtube-thumbnail-manager.sh - reposit YouTube thumbnails offline
 
 options: [-h] [-H] [-q] [-r <dir>]
 
-commands: init, add, scrape, exec, get, stats, search
+commands: init, add, scrape, exec, get, stats, search, absorb
 
 =head1 DESCRIPTION
 
@@ -647,8 +736,7 @@ Specific options are contingent on the subcommand used.  They appear after the
 subcommand and affect its behavior.  These command-specific options are
 documented in the COMMANDS section under each respective command.
 
-Enumerated below are the global command-line options in the same order as shown
-in the command-line help message for this program.
+Enumerated below are the global command-line options.
 
 =over
 
@@ -847,12 +935,49 @@ do
 
 	bash youtube-thumbnail-manager.sh search | xargs xdg-open
 
+=item absorb [-dnp] <repo>
+
+This command pulls in images from another repository.  Given two thumbnail
+repositories I<primary> and I<secondary>, images unique to I<secondary> are
+copied into I<primary>.
+
+Like other commands, the I<primary> repository is determined by the operational
+context, usually the user's working directory.  The I<secondary> repository is
+specified as an argument to the command.  For example, if the working
+directory is a thumbnail repository, and you want to pull in images from a
+repository in a sibling directory, you would type
+
+	bash youtube-thumbnail-manager.sh absorb ../secondary/
+
+Or by using the B<-r> flag in the parent directory:
+
+	bash youtube-thumbnail-manager.sh -r primary/ absorb secondary/
+
+Only the primary repository is modified, unless you choose to delete the
+secondary with B<-d>.  Beyond merely copying image files, this command also
+updates the metadata indexes in the primary repository.
+
+To gauge the scale of the ensued operation, do a dry run with B<-n>.
+
+	bash youtube-thumbnail-manager.sh -r pri/ absorb -n -d sec/
+
+This gives a message like this.
+
+	would index n longs
+	would index m shorts
+	would delete /path/to/secondary
+
+You can monitor the progress of the operation with the B<-p> flag, which is
+relevant when the secondary repository is large.
+
+	bash youtube-thumbnail-manager.sh -r pri/ absorb -p sec/
+
 =item troubleshoot
 
 This command is purposefully excluded from the command-line help message.  It is
 more relevant to me, the programmer, than it is to you, the user.  My own
-repositories have grown unwieldy because they carry reminants from
-earlier stages in the development of this tool.
+repositories have grown unwieldy because they carry remnants from earlier stages
+in the development of this tool.
 
 Use this command to
 
@@ -911,6 +1036,10 @@ The program exits with the following status codes.
 =item 7 unknown command
 
 =item 8 a non-file argument was passed to the add/get command
+
+=item 9 the absorb command received a wrong number of arguments
+
+=item 10 the argument to the absorb command was not a thumbnail repository
 
 =back
 

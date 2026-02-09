@@ -5,7 +5,7 @@
 	AUTHOR: Zachary Krepelka
 	DATE: Saturday, July 19th, 2025
 	ORIGIN: https://github.com/zachary-krepelka/youtube-thumbnail-downloader.git
-	UPDATED: Wednesday, December 10th, 2025 at 1:29 AM
+	UPDATED: Sunday, February 8th, 2026 at 7:34 PM
 -->
 
 A shell script to bulk download YouTube thumbnail images
@@ -129,7 +129,7 @@ recommend that you try `grabber` first.
 
 Here is the command-line help message for `grabber`.
 
-<!-- read !bash youtube-thumbnail-grabber.sh -h -->
+<!-- :read !bash youtube-thumbnail-grabber.sh -h <Enter> -->
 
 ```text
 Bulk Download YouTube Thumbnails From the Command Line
@@ -157,7 +157,7 @@ Example:
 
 Here is the command-line help message for `manager`.
 
-<!-- read !bash youtube-thumbnail-manager.sh -h -->
+<!-- :read !bash youtube-thumbnail-manager.sh -h <Enter> -->
 
 ```text
 Curate an Offline Repository of YouTube Thumbnails
@@ -170,16 +170,17 @@ Options:
   -r <dir>  use <dir> as the [r]epo instead of $PWD
 
 Commands:
-  init                create an empty thumbnail repository in working directory
-  add [file(s)]       add YouTube thumbnails to the index
-                      links are read from [file(s)] if provided;
-                      otherwise, a text editor opens to paste links into
-  scrape [-f]         retrieve metadata for thumbnails in the index
-  exec                downloads thumbnails in the index
-  get [-b] [file(s)]  add + scrape + exec
-  stats               report number of thumbnails and their disk usage
-  search              fuzzy find a thumbnail by its video's title
-                      uses chafa for image previews
+  init                  create an empty thumbnail repository in working directory
+  add [file(s)]         add YouTube thumbnails to the index
+                        links are read from [file(s)] if provided;
+                        otherwise, a text editor opens to paste links into
+  scrape [-f]           retrieve metadata for thumbnails in the index
+  exec                  downloads thumbnails in the index
+  get [-b] [file(s)]    add + scrape + exec
+  stats                 report number of thumbnails and their disk usage
+  search                fuzzy find a thumbnail by its video's title
+                        uses chafa for image previews
+  absorb [-dnp] <repo>  pull in images from another repository
 
 Documentation:
   -h  display this [h]elp message and exit
@@ -194,7 +195,7 @@ e.g., if you use Zsh.
 
 ```bash
 alias yt=youtube-thumbnail-manager.sh
-complete -W 'init add scrape exec get stats search troubleshoot' yt
+complete -W 'init add scrape exec get stats search absorb troubleshoot' yt
 export DEFAULT_YOUTUBE_THUMBNAIL_REPOSITORY=/directory/of/your/choice
 ```
 
