@@ -5,7 +5,7 @@
 # DATE: Sunday, July 28th, 2024
 # ABOUT: reposit YouTube thumbnails offline
 # ORIGIN: https://github.com/zachary-krepelka/youtube-thumbnail-downloader.git
-# UPDATED: Sunday, February 8th, 2026 at 7:40 PM
+# UPDATED: Monday, February 9th, 2026 at 9:19 PM
 
 # Variables --------------------------------------------------------------- {{{1
 
@@ -366,6 +366,8 @@ case "$cmd" in
 				integrate_into "$repo"/$meta/longs
 		 ) |
 		grep -oP "${patterns[glob]}" | sort -u | wc -l
+
+		 # FIXME possible race condition with cmd1 | tee >(cmd2) | cmd3
 	;;
 	scrape) # --------------------------------------------------------- {{{2
 
@@ -401,6 +403,25 @@ case "$cmd" in
 	;;
 	get) # ------------------------------------------------------------ {{{2
 
+		# This is a compound command, and the current implementation of
+		# this is to re-execute the script with different arguments.
+
+		# FIXME Self-wrapping spawns extra processes and requires
+		# propagation of options and arguments.  Refactor this script to
+		# fall through the case statement instead, like this.
+		#
+		# case "$cmd" in
+		#     get)        ;;&
+		#     get|add)    ;;&
+		#     get|scrape) ;;&
+		#     get|exec)   ;;
+		# esac
+		#
+		# A flag can be set in the first case to determine whether
+		# "$cmd" is compound or simple. Argument parsing can be handled
+		# in the first case if compound and in subsequent cases if
+		# simple.
+
 		opt_background=false
 
 		while getopts :b opt
@@ -414,11 +435,11 @@ case "$cmd" in
 
 		shift $((OPTIND - 1))
 
-		bash "$wrapper" -r "$workspace" add "$@" || exit
+		bash "$wrapper" $($opt_quiet && echo -q) -r "$workspace" add "$@" || exit
 
 		{
-			bash "$wrapper" -r "$workspace" scrape
-			bash "$wrapper" -r "$workspace" exec
+			bash "$wrapper" -q -r "$workspace" scrape
+			bash "$wrapper" -q -r "$workspace" exec
 		} &
 
 		if $opt_background
@@ -1138,13 +1159,28 @@ You would also need to migrate existing repositories, e.g.,
 	cd my-repository
 	mv .thumbnails .yt-thumbs
 
-=head1 BUGS
+=head1 TODO
+
+=over
+
+=item
+
+Migrate to SQLite.
+
+=item
+
+Allow the user to specify a different backend for downloading images, perhaps in
+an environment variable.
+
+=item
 
 Only a handful of subcommands require internet connectivity, yet this script
 errors on no connection irrespective of the command used.  This behavior should
 be redesigned so that the script only errors when internet connectivity is
 strictly required.  (The commands which require internet connectivity are
 scrape, exec, and get.)
+
+=back
 
 =head1 AUTHOR
 
