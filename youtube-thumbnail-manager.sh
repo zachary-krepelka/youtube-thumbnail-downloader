@@ -5,46 +5,122 @@
 # DATE: Sunday, July 28th, 2024
 # ABOUT: reposit YouTube thumbnails offline
 # ORIGIN: https://github.com/zachary-krepelka/youtube-thumbnail-downloader.git
-# UPDATED: Monday, February 9th, 2026 at 9:19 PM
+# UPDATED: Friday, February 27th, 2026 at 1:35 AM
 
 # Variables --------------------------------------------------------------- {{{1
 
+video_id_length=11
+declare -A forms=([long]=0 [short]=1) patterns
+patterns[${forms[long]}]="(v=|be/)\\K.{$video_id_length}"
+patterns[${forms[short]}]="shorts/\\K.{$video_id_length}"
+
+# We use these regular expressions to extract YouTube video IDs from an input
+# file containing a list of copy-and-pasted YouTube links.  These patterns
+# intend to match IDs from URLs of the form
+#
+# 	1) https://www.youtube.com/watch?v={id}   (long)
+# 	2) https://www.youtube.com/shorts/{id}    (short)
+# 	3) https://youtu.be/{id}                  (long)
+
+# NOTE about pattern flexibility
+#
+#	In constructing these patterns, we must be mindful of the existence of
+#	additional query parameters.  We keep the patterns unrestrictive for
+#	this reason.  In the case of the first URL type, by excluding the
+#	question mark from the regex (compare ?v= versus v=) we effectively
+#	allow for URLs with query parameters specified in a non-typical order,
+#	e.g.,
+#
+#		youtube.com/watch?list={id}&index={num}&v={id}
+
+# NOTE about the existence of false positives
+#
+#	We use the URL to determine the type of content when extracting video
+#	IDs.  We expect that URL 2 is reserved for short-form content,  while
+#	URLs 1 and 3 are reserved for long-form content.  However, it is
+#	possible to rewrite URL 2 in the form of URL 1 or URL 3, whereby a
+#	YouTube short will play as if it were a standard YouTube video in a 16:9
+#	aspect ratio.  If such a URL is entered, then the short will be falsely
+#	identified as a long.
+
+qualities=(
+	'default'
+	'mqdefault'
+	'hqdefault'
+	'sddefault'
+	'maxresdefault'
+)
+
+# YouTube thumbnails are available in five possible qualities, listed here from
+# worst to best. The highest quality, maxresdefault, may not exist, but it
+# usually does.  We download the highest available quality for each thumbnail by
+# checking the existence from best to worst in a loop.
+
+max_download_attempts=1
+
+# When the user invokes the 'download' command, indexed but undownloaded
+# thumbnails are tried.  Multiple attempts are not made on one pass, but the
+# user is welcome to re-invoke the command if anything failed.  Download
+# attempts are counted, and images with download attempts exceeding this number
+# are skipped.  A failed download attempt usually indicates that either
+#
+# 	1) the video was privated, deleted, or taken down, or
+# 	2) the user is being rate-limited by the server.
+
+gauge_height=6
+gauge_width=50
+gauge_percent=0
+
+# These are arguments supplied to the whiptail command when displaying progress
+# bars, declared here explicitly to avoid magic numbers.
+
+declare -A ansi=(
+	[yellow]=$'\e[0;33m'
+	[reset]=$'\e[0m'
+)
+
+# ANSI escape codes for colorizing output
+# https://en.wikipedia.org/wiki/ANSI_escape_code
+
 program="${0##*/}"
+target="$PWD"
+database=.yt.db
 
-workspace="$PWD"
-
-meta=.thumbnails
+# used extensively throughout
 
 # Functions --------------------------------------------------------------- {{{1
 
 usage() {
-	cat <<-USAGE
+	local message
+	IFS= read -r -d '' message <<-EOF || true
 	Curate an Offline Repository of YouTube Thumbnails
 
 	Usage:
 	  bash $program [opts] <cmd>
 
 	Options:
-	  -q        be [q]uiet: silence warnings but not errors
-	  -r <dir>  use <dir> as the [r]epo instead of \$PWD
+	  -q        silence warnings and errors
+	  -r <dir>  target <dir> instead of \$PWD as the [r]epo
+	  -d        target [d]efault repo even when \$PWD is a repo
 
 	Commands:
 	  init                  create an empty thumbnail repository in working directory
-	  add [file(s)]         add YouTube thumbnails to the index
+	  index [file(s)]       add YouTube thumbnails to the index
 	                        links are read from [file(s)] if provided;
 	                        otherwise, a text editor opens to paste links into
-	  scrape [-f]           retrieve metadata for thumbnails in the index
-	  exec                  downloads thumbnails in the index
-	  get [-b] [file(s)]    add + scrape + exec
+	  download [-p]         downloads thumbnails in the index
+	  scrape [-p]           retrieve metadata for (downloaded) thumbnails in the index
+	  get [-p] [files(s)]   index + download + scrape
 	  stats                 report number of thumbnails and their disk usage
-	  search                fuzzy find a thumbnail by its video's title
+	  search [-cusl]        fuzzy find a thumbnail by its video's title
 	                        uses chafa for image previews
 	  absorb [-dnp] <repo>  pull in images from another repository
 
 	Documentation:
 	  -h  display this [h]elp message and exit
 	  -H  read documentation for this script then exit
-	USAGE
+	EOF
+	printf '%s\n' "$message"
 }
 
 documentation() {
@@ -52,55 +128,41 @@ documentation() {
 }
 
 error() {
-	local code="$1"
-	local message="$2"
-	echo "$program: error: $message" >&2
+	local code="$1" message="$2"
+	$opt_quiet || echo "$program: error: $message" >&2
 	exit "$code"
 }
 
 warn() {
-	# uses global variable $opt_quiet
-
-	$opt_quiet && return
 	local message="$1"
-	echo "$program: warning: $message" >&2
+	$opt_quiet || echo "$program: warning: $message" >&2
 }
 
 error_cmd() {
-
-	# uses global variable $cmd
-
 	local code="$1" message="$2"
 	error "$code" "command $cmd: $message"
 }
 
 warn_cmd() {
-
-	# uses global variable $cmd
-
 	local message="$1"
 	warn "command $cmd: $message"
 }
 
 warn_unknown_cmd_opt() {
-
-	# uses global variable $OPTARG
-
 	warn_cmd "unknown option -$OPTARG"
 }
 
-check_dependencies() {
+error_on_missing_dependencies() {
 
 	local dependencies=(
-		cat chafa column convert cut
-		dirname du find fzf grep ifne
-		less ls mkdir nc perl pod2text
-		realpath rm rsync sed sort
-		sponge tail tee timeout touch
-		vipe wc wget whiptail xargs
+		cat chafa column convert cut du
+		find fzf grep less ls mkdir
+		mktemp nc perl pod2text realpath
+		rm rsync sqlite3 tail timeout
+		vipe wget whiptail xxd
 	)
 
-	local missing=
+	local code="${1:-1}" cmd missing=
 
 	for cmd in "${dependencies[@]}"
 	do
@@ -110,69 +172,95 @@ check_dependencies() {
 	done
 
 	if test -n "$missing"
-	then error 1 "missing dependencies: ${missing%, }"
+	then error "$code" "missing dependencies: ${missing%, }"
 	fi
+}
+
+has_connection() {
+
+	local website="$1"
+
+	timeout 2 nc -zw1 "$website" 443 &>/dev/null
+
+	# https://unix.stackexchange.com/q/190513
+}
+
+has_perl_module() {
+
+	local module="$1"
+
+	perl -M$module -e 1 2>/dev/null
+
+	# https://stackoverflow.com/a/1039262
 }
 
 is_repo() {
 
-	local candidate="$1" status=1
+	local candidate="$1"
 
-	test -d "$candidate" || return $status
-
-	for dir in $meta longs shorts
-	do
-		((status++))
-		test -d "$candidate"/$dir || return $status
-	done
-
-	return 0
+	test -f "$candidate/$database"
 }
 
 enforce_repo_context() {
 
 	# defines a global variable called repo
 
-	if is_repo "$workspace"
+	if is_repo "$target"
 	then
-		repo="$workspace"
+		repo="$target"
 
 	elif is_repo "$DEFAULT_YOUTUBE_THUMBNAIL_REPOSITORY"
 	then
 		repo="$DEFAULT_YOUTUBE_THUMBNAIL_REPOSITORY"
 		warn 'falling back to default repository'
 	else
-		error 6 "not a repository: $workspace"
+		error 6 "not a repository: $target"
 	fi
 }
 
-check_connection() {
-
-	local website="$1"
-
-	timeout 2 nc -zw1 "$website" 443 &>/dev/null ||
-		error 3 'no internet connectivity'
-
-	# https://unix.stackexchange.com/q/190513
+fzf_load() {
+	sqlite3 -separator "$fzf_delim" "$repo/$database" "$fzf_query"
 }
 
-cut_down() {
-
-	local minuend="$1"
-	local subtrahend="$2"
-
-	grep -Fxvf "$subtrahend" "$minuend"
-
-	# https://proofwiki.org/wiki/Definition:Set_Difference
+fzf_delete() {
+	local video_id
+	for video_id
+	do
+		sqlite3 "$repo/$database" <<- SQL
+		DELETE FROM content WHERE id is '$video_id';
+		SQL
+		find "$repo" -name "$video_id.jpg" -exec rm {} \;
+	done
 }
 
-integrate_into() {
+fzf_preview() {
 
-	local file="$1"
+	local video_id="$1" form="$2" dim flags imagepath
 
-	shift
+	dim=${FZF_PREVIEW_COLUMNS}x$FZF_PREVIEW_LINES
 
-	cat "$file" "${@:--}" | sort -u | sponge "$file"
+	if test $form = short
+	then flags='-gravity center -crop 9:16'
+	else flags='-trim'
+	fi
+
+	imagepath="$(find "$repo" -name "$video_id.jpg")"
+
+	convert "$imagepath" $flags jpg:- 2> /dev/null |
+		chafa --view-size $dim --align center,center -
+}
+
+reverse_lookup() {
+
+	local string="$1" separator="${2:-,}" array
+
+	IFS="$separator" read -a array <<< "$string"
+
+	declare -gA indices
+
+	for i in "${!array[@]}"
+	do indices[${array[$i]}]=$((i+1))
+	done
 }
 
 #  +--DISCLAIMER----------------------------------- |
@@ -213,81 +301,37 @@ jpg_size() {
 	# Preferred over 'du -ch -- *.jpg' so as not to exceed ARG_MAX
 }
 
-scrape_youtube_video_title() {
-
-	local video_id="$1"
-
-	wget -qO- "https://youtu.be/$video_id" |
-		grep -Pom1 '<title>\K[^<]*' |
-		sed 's/.\{10\}$//' |
-		perl -MHTML::Entities -pe 'decode_entities($_);'
-
-	# Magic number 10 is the length of the string ' - YouTube'
-}
-
-has_perl_module() {
-
-	local module="$1"
-
-	perl -M$module -e 1 2>/dev/null
-
-	# https://stackoverflow.com/a/1039262
-}
-
-# Precondition Checks ----------------------------------------------------- {{{1
-
-check_dependencies # must be called before any external command
-
-if ! has_perl_module HTML::Entities
-then error 2 'perl module HTML:Entities required'
-fi
-
-check_connection img.youtube.com
-
-wrapper="$(realpath "$0")"
-wrappee="$(dirname "$wrapper")/youtube-thumbnail-grabber.sh"
-
-if test ! -f "$wrappee"
-then error 4 'missing base script'
-fi
-
 # Command-line Argument Parsing ------------------------------------------- {{{1
 
-declare opt_{help,doc,quiet,target,invalid}=false
+declare opt_{help,doc,quiet,target,default,invalid}=false
 
-while getopts :Hhqr: opt
+while getopts :Hhqr:d opt
 do
 	case "$opt" in
 
 		H) opt_doc=true;;
 		h) opt_help=true;;
 		q) opt_quiet=true;;
-		r) opt_target=true; workspace="$OPTARG";;
+		r)
+			opt_target=true
+			opt_default=false
+			target="$OPTARG"
+		;;
+		d)
+			opt_default=true
+			opt_target=false
+		;;
 		*) opt_invalid=true; invalid_opt+="$OPTARG";;
 	esac
 done
 
-if $opt_doc
-then
-	documentation
-	exit 0
-fi
+# help should always be available,
+# regardless of whether preconditions are met
 
 if $opt_help || test $# -eq 0
 then
-	usage
+	usage # uses no external binaries
 	exit 0
-fi
-
-if $opt_target
-then
-	test -d "$workspace" || error 5 "not a directory: $workspace"
-
-	workspace="$(realpath -m "$workspace")" # strip trailing slashes
-fi
-
-if $opt_invalid
-then warn "unknown global option -$invalid_opt"
 fi
 
 shift $((OPTIND - 1))
@@ -295,54 +339,132 @@ cmd="${1,,}"
 shift
 OPTIND=1
 
+# Precondition Checks ----------------------------------------------------- {{{1
+
+error_on_missing_dependencies 1 # must be called before any external command
+
+has_perl_module HTML::Entities || error 2 'perl module HTML::Entities required'
+
+has_connection img.youtube.com || error 3 'no internet connectivity'
+
+# Option Handling --------------------------------------------------------- {{{1
+
+# Options are handled after they are parsed to enforce a consistent order of
+# evaluation.  If actions were performed in the getopts loop, then the
+# evaluation order would depend on the order the user passed the flags.
+
+$opt_invalid && warn "unknown global option -$invalid_opt"
+
+if $opt_doc
+then
+	documentation
+	exit 0
+fi
+
+if $opt_default
+then
+	test -v DEFAULT_YOUTUBE_THUMBNAIL_REPOSITORY ||
+		error 4 'default repository not defined'
+
+	target="$DEFAULT_YOUTUBE_THUMBNAIL_REPOSITORY"
+fi
+
+if $opt_target || $opt_default
+then
+	test -d "$target" || error 5 "not a directory: $target"
+
+	target="$(realpath -m "$target")" # strip trailing slashes
+fi
+
 # Command Processing ------------------------------------------------------ {{{1
 
 case "$cmd" in
 
 	init) # ----------------------------------------------------------- {{{2
 
-		mkdir -p "$workspace"/{$meta,longs,shorts}
+		mkdir -p "$target"/{long,short}
 
-		touch "$workspace"/$meta/{longs,shorts,titles}
+		sqlite3 "$target/$database" <<- SQL
+
+		CREATE TABLE content (
+			id TEXT PRIMARY KEY,
+			form INTEGER NOT NULL,
+			title TEXT,
+			channel TEXT,
+			quality INTEGER,
+			attempts INTEGER DEFAULT 0,
+			indexed DATETIME DEFAULT CURRENT_TIMESTAMP
+		);
+
+		CREATE VIEW content_view AS
+		SELECT
+			id,
+			CASE form
+				WHEN 0 THEN 'long'
+				WHEN 1 THEN 'short'
+			END AS form,
+			title,
+			channel,
+			CASE quality
+				WHEN 0 THEN 'default'
+				WHEN 1 THEN 'mqdefault'
+				WHEN 2 THEN 'hqdefault'
+				WHEN 3 THEN 'sddefault'
+				WHEN 4 THEN 'maxresdefault'
+				ELSE NULL
+			END AS quality,
+			attempts,
+			CASE
+				WHEN quality IS NULL THEN FALSE
+				ELSE TRUE
+			END AS downloaded,
+			CASE
+				WHEN title IS NULL OR channel IS NULL THEN FALSE
+				ELSE TRUE
+			END AS scraped
+		FROM content;
+		SQL
 	;;
-	add) # ------------------------------------------------------------ {{{2
+	get) # ------------------------------------------------------------ {{{2
+
+		msg='under maintenance during reactor, check back later.'
+		msg+=' Use commands "index","download", and "scrape" instead.'
+
+		error_cmd 11 "$msg"
+
+		# TODO implement a compound command `get` which executes the
+		# `index`, `download`, and `scrape` commands in sequence by
+		# falling through the case statement, like this:
+		#
+		#         case "$cmd" in
+		#             get)          ;;&
+		#             get|index)    ;;&
+		#             get|download) ;;&
+		#             get|scrape)   ;;
+		#         esac
+		#
+		# The compound command `get` will have its own set of options
+		# and arguments, some of which will propagate through to the
+		# constituent commands.  To implement this, a flag can be set in
+		# the first case to determine whether "$cmd" is compound or
+		# simple.  Argument parsing can be handled in the first case if
+		# compound and in subsequent cases if simple.  Here are some
+		# ideas for options and arguments to the compound command.
+		#
+		# Options:
+		#   -p  propagate the [p]rogress flag through to
+		#       each of `download` and `scrape`
+		#   -b  run each of `download` and `scrape` in
+		#       the [b]ackground (`index` must run in
+		#       the foreground because it prompts the
+		#       user to enter text interactively)
+		#
+		# Arguments:
+		#   [files(s)]  propagates through to the `index` command
+	;;
+	index) # ---------------------------------------------------------- {{{2
 
 		enforce_repo_context
-
-		declare -A patterns; video_id_length=11
-
-		patterns[long]="(v=|be/)\\K.{$video_id_length}"
-		patterns[short]="shorts/\\K.{$video_id_length}"
-		patterns[glob]="(v=|be/|shorts/)\\K.{$video_id_length}"
-
-		# These patterns intend to match IDs from URLs of the form
-		#
-		# 	1) https://www.youtube.com/watch?v={id}   (long)
-		# 	2) https://www.youtube.com/shorts/{id}    (short)
-		# 	3) https://youtu.be/{id}                  (long)
-
-		# NOTE about the existence of false positives
-		#
-		#	We use the context to determine the type of content.
-		#	Obviously, URL 2 is reserved for short-form content.
-		#	Typically, URLs 1 and 3 are reserved for long-form
-		#	content.  However, it is possible to rewrite URL 2 in
-		#	the form of URL 1 or URL 3, whereby a YouTube short will
-		#	play as if it were a standard YouTube video in a 16:9
-		#	aspect ratio.  If such a URL is entered, then the short
-		#	will be falsely identified as a long.
-
-		# NOTE about pattern flexibility
-		#
-		#	In constructing these patterns, we must be mindful of
-		#	the existence of additional query parameters.  We keep
-		#	the patterns unrestrictive for this reason.  In the case
-		#	of the first URL type, by excluding the question mark
-		#	from the regex (compare ?v= versus v=) we effectively
-		#	allow for URLs with query parameters specified in a
-		#	non-typical order, e.g.,
-		#
-		#		youtube.com/watch?list={id}&index={num}&v={id}
 
 		for candidate
 		do test -e "$candidate" || error_cmd 8 "not a file: $candidate"
@@ -350,150 +472,283 @@ case "$cmd" in
 
 		# NOTE -e is preferred over -f to allow for process substitution
 
-			# test -e <(echo file contents)   # true
-			# test -f <(echo file contents)   # false
+			# test -e <(echo file contents); echo $?
+			# test -f <(echo file contents); echo $?
+
+		urls="$(mktemp)"; trap "rm -f $urls" EXIT
 
 		if test $# -gt 0
 		then cat "$@"
 		else vipe
-		fi | ifne tee \
-		>(
-			grep -oP "${patterns[short]}" |
-				integrate_into "$repo"/$meta/shorts
-		 ) \
-		>(
-			grep -oP "${patterns[long]}" |
-				integrate_into "$repo"/$meta/longs
-		 ) |
-		grep -oP "${patterns[glob]}" | sort -u | wc -l
+		fi > "$urls"
 
-		 # FIXME possible race condition with cmd1 | tee >(cmd2) | cmd3
+		for form in "${forms[@]}"
+		do
+			grep -oP "${patterns[$form]}" "$urls" |
+				while IFS= read -r id
+				do
+					sqlite3 "$repo/$database" <<- SQL
+					INSERT OR IGNORE
+					INTO content (id, form)
+					VALUES ('$id', '$form');
+					SQL
+				done
+		done
 	;;
-	scrape) # --------------------------------------------------------- {{{2
+	download) #-------------------------------------------------------- {{{2
 
 		enforce_repo_context
 
-		opt_force=false
+		declare opt_progress_bar=false
 
-		while getopts :f opt
+		while getopts :p opt
 		do
 			case "$opt" in
-
-				f) opt_force=true;;
-				*) warn_unknown_cmd_opt;;
-			esac
-		done
-
-		if $opt_force
-		then sed -i '/^.\{11\}\t$/d' "$repo"/$meta/titles
-		fi
-
-		cut_down <(cat "$repo"/$meta/{longs,shorts}) <(cut -f1 "$repo"/$meta/titles) |
-		while read -r video_id
-		do echo "$video_id"$'\t'"$(scrape_youtube_video_title $video_id)"
-		done | integrate_into "$repo"/$meta/titles
-	;;
-	exec) # ----------------------------------------------------------- {{{2
-
-		enforce_repo_context
-
-		for fmt in longs shorts
-		do bash "$wrappee" -bo "$repo"/$fmt "$repo"/$meta/$fmt
-		done
-	;;
-	get) # ------------------------------------------------------------ {{{2
-
-		# This is a compound command, and the current implementation of
-		# this is to re-execute the script with different arguments.
-
-		# FIXME Self-wrapping spawns extra processes and requires
-		# propagation of options and arguments.  Refactor this script to
-		# fall through the case statement instead, like this.
-		#
-		# case "$cmd" in
-		#     get)        ;;&
-		#     get|add)    ;;&
-		#     get|scrape) ;;&
-		#     get|exec)   ;;
-		# esac
-		#
-		# A flag can be set in the first case to determine whether
-		# "$cmd" is compound or simple. Argument parsing can be handled
-		# in the first case if compound and in subsequent cases if
-		# simple.
-
-		opt_background=false
-
-		while getopts :b opt
-		do
-			case "$opt" in
-
-				b) opt_background=true;;
+				p) opt_progress_bar=true;;
 				*) warn_unknown_cmd_opt;;
 			esac
 		done
 
 		shift $((OPTIND - 1))
 
-		bash "$wrapper" $($opt_quiet && echo -q) -r "$workspace" add "$@" || exit
+		constraint='downloaded IS FALSE'
 
-		{
-			bash "$wrapper" -q -r "$workspace" scrape
-			bash "$wrapper" -q -r "$workspace" exec
-		} &
+		constraint+=" AND attempts < $max_download_attempts"
 
-		if $opt_background
-		then echo $!
-		else wait $!
+		query="SELECT id,form FROM content_view WHERE $constraint;"
+
+		if $opt_progress_bar
+		then
+			count_query="${query/id,form/COUNT(*)}"
+			total=$(sqlite3 "$repo/$database" "$count_query")
+			current=0
+		fi
+
+		sqlite3 "$repo/$database" "$query" | while IFS=\| read -r id form
+		do
+			sqlite3 "$repo/$database" <<- SQL
+			UPDATE content
+			SET attempts = attempts + 1
+			WHERE id = '$id';
+			SQL
+
+			imagepath="$repo/$form/$id.jpg"
+
+			url_prefix="https://img.youtube.com/vi/$id"
+
+			for ((i = ${#qualities[@]} - 1; i >= 0; i--))
+			do
+				url="$url_prefix/${qualities[$i]}.jpg"
+
+				if wget -qO "$imagepath" "$url"
+				then
+					sqlite3 "$repo/$database" <<- SQL
+					UPDATE content
+					SET quality = $i
+					WHERE id = '$id';
+					SQL
+					break
+				fi
+			done
+
+			if $opt_progress_bar
+			then
+				# TODO compute and report ETA
+				percentage=$((++current * 100 / total))
+				echo $percentage
+			fi
+		done |
+		if $opt_progress_bar
+		then whiptail --gauge 'Downloading Thumbnails' $gauge_{height,width,percent}
 		fi
 	;;
-	stats) # ---------------------------------------------------------- {{{2
+	scrape) # --------------------------------------------------------- {{{2
 
 		enforce_repo_context
 
-		for fmt in longs shorts
+		declare opt_progress_bar=false
+
+		while getopts :p opt
 		do
-			declare ${fmt}_cnt=$(jpg_count "$repo"/$fmt)
-			declare ${fmt}_size=$(jpg_size "$repo"/$fmt)
+			case "$opt" in
+				p) opt_progress_bar=true;;
+				*) warn_unknown_cmd_opt;;
+			esac
 		done
 
-		# shellcheck disable=2154
-		{
-		total_cnt=$((longs_cnt + shorts_cnt))
-		total_size=$(jpg_size "$repo"/{longs,shorts})
+		shift $((OPTIND - 1))
+
+		constraint='scraped IS FALSE AND downloaded IS TRUE'
+
+		query="SELECT id FROM content_view WHERE $constraint;"
+
+		if $opt_progress_bar
+		then
+			count_query="${query/id/COUNT(id)}"
+			total=$(sqlite3 "$repo/$database" "$count_query")
+			current=0
+		fi
+
+		webpage="$(mktemp)"; trap "rm -f $webpage" EXIT
+
+		sqlite3 "$repo/$database" "$query" | while IFS= read -r id
+		do
+			# download the webpage
+
+			wget -qO "$webpage" "https://youtu.be/$id"
+
+			# extract the title as a hex-encoded string
+
+			title="$(perl -MHTML::Entities -ne '
+				if (/<title>\K([^<]*)/) {
+					print unpack("H*", decode_entities(substr($1, 0, -10)));
+					last;
+				}
+			' < "$webpage")"
+
+			# extract the channel name as a hex-encoded string
+
+			channel="$(perl -ne '
+				if (/ChannelName":"([^"]*)/) {
+					print unpack("H*", $1);
+					last;
+				}
+			' < "$webpage")"
+
+			# interpolate hex-encoded strings to avoid quoting hell
+
+			sqlite3 "$repo/$database" <<- SQL
+			UPDATE content
+			SET
+				title = CAST(x'$title' AS TEXT),
+				channel = CAST(x'$channel' AS TEXT)
+			WHERE id = '$id';
+			SQL
+
+			# update the progress bar
+
+			if $opt_progress_bar
+			then
+				# TODO compute and report ETA
+				percentage=$((++current * 100 / total))
+				echo $percentage
+			fi
+
+		done |
+		if $opt_progress_bar
+		then whiptail --gauge 'Scraping Data' $gauge_{height,width,percent}
+		fi
+	;;
+	stats) #----------------------------------------------------------- {{{2
+
+		enforce_repo_context
+
+		for form in long short
+		do
+			declare ${form}_count=$(jpg_count "$repo"/$form)
+			declare ${form}_size=$(jpg_size "$repo"/$form)
+		done
+
+		total_count=$((long_count + short_count))
+		total_size=$(jpg_size "$repo"/{long,short})
 
 		column -tN ' ',LONGS,SHORTS,TOTAL <<-REPORT
-		COUNT $longs_cnt  $shorts_cnt  $total_cnt
-		SIZE  $longs_size $shorts_size $total_size
+		COUNT $long_count $short_count $total_count
+		SIZE  $long_size  $short_size  $total_size
 		REPORT
-		}
 	;;
 	search) # --------------------------------------------------------- {{{2
 
 		enforce_repo_context
 
-		cd "$repo"
+		declare opt_{channel,long,short,url}=false
 
-		fzf -m --with-nth=2.. --bind ctrl-space:refresh-preview --preview '
-			imagepath="$(
-				echo {} |
-				cut -f1 |
-				xargs -I video_id \
-					find ~+ -name '"'"'video_id.jpg'"'"')";
-			type="$(dirname "$imagepath")";
-			type="${type##*/}";
-			if test "$type" = shorts
-			then convert "$imagepath" -gravity center -crop 9:16 - 2>/dev/null
-			else cat "$imagepath"
-			fi |
-			chafa \
-			--view-size ${FZF_PREVIEW_COLUMNS}x$FZF_PREVIEW_LINES \
-			--align center,center -
-		' < $meta/titles |
-		cut -f1 |
-		xargs -I video_id find ~+ -name 'video_id.jpg'
+		while getopts :clsu opt
+		do
+			case "$opt" in
+
+				c) opt_channel=true;;
+				l)
+					opt_long=true
+					opt_short=false
+				;;
+				s)
+					opt_short=true
+					opt_long=false
+				;;
+				u) opt_url=true;;
+			esac
+		done
+
+		shift $((OPTIND - 1))
+
+		fzf_delim=$'\t'
+		fzf_fields=id,form,title
+		fzf_message="${ansi[yellow]}Enter${ansi[reset]} to choose"
+		fzf_message+=" | ${ansi[yellow]}Del${ansi[reset]} to delete"
+
+		reverse_lookup $fzf_fields
+
+		constraint='downloaded IS TRUE AND scraped IS TRUE'
+
+		$opt_long  && constraint+=" AND form IS 'long'"
+		$opt_short && constraint+=" AND form IS 'short'"
+
+		if $opt_channel
+		then
+			selection_set=
+
+			while read -r channel
+			do selection_set+="x'$(printf '%s' "$channel" | xxd -p -c0)',"
+			done < <(
+				sqlite3 -separator $'\t' "$repo/$database" <<-SQL |
+				SELECT channel, COUNT(id) AS occurrences
+				FROM content_view
+				GROUP BY channel
+				ORDER BY occurrences DESC, channel ASC;
+				SQL
+					column \
+						--table \
+						--table-columns CHANNEL,THUMBNAILS \
+						--separator $'\t' \
+						--output-separator $'\t' |
+					fzf \
+						--delimiter $'\t' \
+						--multi \
+						--nth 1 \
+						--accept-nth 1 \
+						--header-lines 1)
+
+			constraint+=" AND CAST(channel as BLOB) IN (${selection_set%,})"
+		fi
+
+		fzf_query="SELECT $fzf_fields FROM content_view WHERE $constraint;"
+
+		export repo database fzf_{query,delim}
+		export -f fzf_{load,delete,preview}
+
+		fzf_load | SHELL="$BASH" fzf \
+			--multi \
+			--delimiter "$fzf_delim" \
+			--with-nth ${indices[title]} \
+			--accept-nth ${indices[id]},${indices[form]} \
+			--preview "fzf_preview {${indices[id]}} {${indices[form]}}" \
+			--bind "del:execute-silent(fzf_delete {+${indices[id]}})+reload(fzf_load)" \
+			--bind resize:refresh-preview \
+			--header "$fzf_message" |
+		while IFS="$fzf_delim" read -r id form
+		do
+			if $opt_url
+			then
+				if test $form = short
+				then echo https://www.youtube.com/shorts/$id
+				else echo https://www.youtube.com/watch?v=$id
+				fi
+			else find "$repo" -type f -name $id.jpg
+			fi
+		done
 	;;
-	absorb) # --------------------------------------------------------- {{{2
+	absorb) # ---------------------------------------------------------
 
 		enforce_repo_context
 
@@ -517,15 +772,32 @@ case "$cmd" in
 		primary="$repo"
 		secondary="$(realpath -m "$1")"
 
+		test -d "$secondary" ||
+			error_cmd 10 "not a directory: $1"
+
 		is_repo "$secondary" ||
-			error_cmd 10 'argument is not a thumbnail repository'
+			error_cmd 10 "not a repository: $1"
 
 		if $opt_dryrun
 		then
-			for fmt in longs shorts
+			for form in long short
 			do
-				cut_down {"$secondary","$primary"}/$meta/$fmt |
-					echo would index $(wc -l) $fmt
+				sqlite3 "$primary/$database" <<- SQL |
+				ATTACH '${secondary//\'/\'\'}/$database' AS source;
+				SELECT COUNT(id) FROM source.content_view
+				WHERE id NOT IN (SELECT id FROM main.content_view)
+				AND form IS '$form';
+				SQL
+				{
+					read count;
+
+					if test $count -eq 1
+					then suffix=
+					else suffix=s
+					fi
+
+					echo would index $count $form$suffix
+				}
 			done
 
 			$opt_delete && echo would delete "$secondary"
@@ -535,20 +807,23 @@ case "$cmd" in
 			exit 0
 		fi
 
+		sqlite3 "$primary/$database" <<- SQL
+		BEGIN TRANSACTION;
+		ATTACH '${secondary//\'/\'\'}/$database' AS source;
+		INSERT OR IGNORE INTO main.content SELECT * FROM source.content;
+		COMMIT;
+		SQL
+
 		rsync_flags='--archive --ignore-existing'
 
 		$opt_progress && rsync_flags+=' --no-i-r --info=progress2'
 
-		for fmt in longs shorts
+		for form in long short
 		do
-			integrate_into {"$primary","$secondary"}/$meta/$fmt
+			$opt_progress && echo $form
 
-			$opt_progress && echo $fmt
-
-			rsync $rsync_flags {"$secondary","$primary"}/$fmt/
+			rsync $rsync_flags {"$secondary","$primary"}/$form/
 		done
-
-		integrate_into {"$primary","$secondary"}/$meta/titles
 
 		if $opt_delete
 		then
@@ -560,33 +835,36 @@ case "$cmd" in
 
 		enforce_repo_context
 
-		for fmt in longs shorts
+		for form in long short
 		do
-			declare ${fmt}_indexed=$(wc -l < "$repo"/$meta/$fmt)
-			declare ${fmt}_downloaded=$(jpg_count "$repo"/$fmt)
-			declare ${fmt}_diff=$((${fmt}_indexed-${fmt}_downloaded))
+			query="SELECT COUNT(id) FROM content_view WHERE form IS '$form';"
+
+			declare ${form}s_indexed=$(sqlite3 "$repo/$database" "$query")
+			declare ${form}s_downloaded=$(jpg_count "$repo/$form")
+			declare ${form}s_diff=$((${form}s_indexed-${form}s_downloaded))
 		done
 
 		     indexed=$((longs_indexed + shorts_indexed))
 		  downloaded=$((longs_downloaded + shorts_downloaded))
 		undownloaded=$((indexed - downloaded))
-		     scraped=$(wc -l < "$repo"/$meta/titles)
-		   unscraped=$((indexed - scraped))
-		      titled=$(grep -Pcvx '.{11}\t' "$repo"/$meta/titles)
-		    untitled=$((scraped - titled))
 
 		column -tN ' ',LONGS,SHORTS,TOTAL <<-REPORT
 		INDEXED    $longs_indexed    $shorts_indexed    $indexed
 		DOWNLOADED $longs_downloaded $shorts_downloaded $downloaded
 		DIFFERENCE $longs_diff       $shorts_diff       $undownloaded
 		REPORT
+	;;
+	dump) # ----------------------------------------------------------- {{{2
 
-		echo
+		enforce_repo_context
 
-		column -tN ' ',NO,YES,TOTAL <<-REPORT
-		SCRAPED? $unscraped $scraped $indexed
-		TITLED?  $untitled  $titled  $scraped
-		REPORT
+		query='SELECT * FROM content_view;'
+
+		cols=ID,FORM,TITLE,CHANNEL,QUALITY,ATTEMPTS,DOWNLOADED,SCRAPED
+
+		sqlite3 -separator $'\t' "$repo/$database" "$query" |
+			column -ts $'\t' -N $cols |
+			less -S +k
 	;;
 	# }}}
 
@@ -609,17 +887,16 @@ youtube-thumbnail-manager.sh - reposit YouTube thumbnails offline
 
  bash youtube-thumbnail-manager.sh [options] <command>
 
-options: [-h] [-H] [-q] [-r <dir>]
+options: [-h] [-H] [-q] [-r <dir> | -d]
 
-commands: init, add, scrape, exec, get, stats, search, absorb
+commands: init, index, download, scrape, get, stats, search, absorb
 
 =head1 DESCRIPTION
 
 This program allows its user to curate an offline repository of YouTube
 thumbnails.  It is a workflow-centric program designed to supplement the YouTube
-browsing experience.  As a wrapper around another shell script, this program not
-only downloads thumbnails but also facilitates the organization of them on your
-computer.
+browsing experience.  This program not only downloads thumbnails but also
+facilitates the organization of them on your computer.
 
 =head2 Objective
 
@@ -628,10 +905,7 @@ into the following file structure, which we call a B<YouTube thumbnail
 repository>.
 
 	repo/
-	|-- .thumbnails/
-	|   |-- longs
-	|   |-- shorts
-	|   `-- titles
+	|-- .yt.db
 	|-- longs/
 	|   |-- aaaaaaaaaaa.jpg
 	|   |-- bbbbbbbbbbb.jpg
@@ -660,20 +934,14 @@ These are videos of restricted duration.
 
 =back
 
-Downloaded thumbnails are named after their video's ID.  Representatively, the
+Downloaded thumbnails are named with their video's ID.  Representatively, the
 file C<aaaaaaaaaaa.jpg> is the downloaded thumbnail image of a YouTube video
 whose ID is C<aaaaaaaaaaa>.  This naming scheme is chosen for programmatic
 simplicity, not for human readability.  Note that a search command is provided
 for finding thumbnails by their video's title.
 
-There is also a hidden directory called C<.thumbnails> containing metadata.
-This metadata directory can be used to reconstruct / re-download the whole
-repository if the images themselves are later deleted.  It can be packaged and
-distributed to share collections of images with a common theme.
-
-The files C<longs> and C<shorts> are indexes recording the thumbnails in the
-repository.  The file C<titles> records the title of the video of each
-thumbnail.
+The hidden file named C<.yt.db> is an SQLite database file which stores
+information about the downloaded thumbnails.
 
 =head2 Workflow
 
@@ -731,9 +999,9 @@ collection of images.
 
 =head2 Working Directory
 
-Note that this program has a concept of a working directory.  The commands
-that you execute affect the repository you are in.  You can create multiple
-repositories, perhaps to capture different thematic elements in images.
+This program has a concept of a working directory.  The commands that you
+execute affect the repository you are in.  You can create multiple repositories,
+perhaps to capture different thematic elements in images.
 
 If you execute a command in a directory that is not designated as a thumbnail
 repository, you will receive an error.  To alleviate the burden of navigating
@@ -750,8 +1018,9 @@ There are two types of options: global and specific.
 Global options apply to the program as a whole.  They appear before the
 subcommand on the command line.  Some of them cause the program to exit
 prematurely without processing the subcommand (e.g., -h and -H), while others
-change the way that the program behaves (e.g., -q and -r).  In the former case,
-the subcommand is not required.  In the latter case, a subcommand is expected.
+change the way that the program behaves (e.g., -q, -r, and -d).  In the former
+case, the subcommand is not required.  In the latter case, a subcommand is
+expected.
 
 Specific options are contingent on the subcommand used.  They appear after the
 subcommand and affect its behavior.  These command-specific options are
@@ -767,21 +1036,37 @@ Display a [h]elp message and exit.
 
 =item B<-H>
 
-Display this documentation in a pager and then exit.  The uppercase B<-H> is to
-parallel the lowercase B<-h> in that they both provide help.
+Display this documentation in a pager and exit after the user quits.  The
+documentation is divided into sections.  Each section header is matched with a
+search pattern, meaning that you can use navigation commands like C<n> and its
+counterpart C<N> to go to the next or previous section respectively.  The
+uppercase -H is to parallel the lowercase -h.
 
 =item B<-q>
 
-Be [q]uiet: silence warnings but not errors.  Warnings are friendly messages to
+Be [q]uiet: silence warnings and errors.  Warnings are friendly messages to
 alert the user about a non-critical or potential issue.  Error messages indicate
-a critical issue that caused the program to exit prematurely.
+a critical issue that caused the program to exit prematurely.  Output should
+still be expected for commands whose explicit purpose is to display information,
+e.g., the C<stats> command.
 
 =item B<-r> I<PATH>
 
-Run as if this program was started in I<PATH> instead of in the current working
+Run as if this program was started in I<PATH> instead of in the working
 directory.  This option allows the user to change the targeted thumbnail
 [r]epository.  As noted earlier, this program has a concept of a working
 directory.  The commands that you execute affect the repository you are in.
+
+=item B<-d>
+
+Explicitly target the [d]efault repository, even when the user's working
+directory is already a repository.  Usually, the default repository is a
+fallback for when commands are issued outside of a repository.  This flag forces
+the default repository to be used no matter what.  See the ENVIRONMENT section
+for more information.
+
+This flag is mutually exclusive with B<-r>, and if both are provided, the last
+one to be specified on the command-line takes priority.
 
 =back
 
@@ -791,9 +1076,9 @@ directory.  The commands that you execute affect the repository you are in.
 
 =item init
 
-This command initializes the current working directory as a YouTube thumbnail
-repository.  It is the only command which does not require the current working
-directory to be a YouTube thumbnail repository.
+This command initializes the working directory as a YouTube thumbnail
+repository.  It is the only command which does not require the working directory
+to already be a YouTube thumbnail repository.
 
 Initializing a thumbnail repo means
 
@@ -801,9 +1086,9 @@ Initializing a thumbnail repo means
 
 =item
 
-Creating a hidden metadata directory to index thumbnails.  The presence of this
-subdirectory is what determines whether a given directory is a thumbnail
-repository.
+Creating a hidden database file to store information about thumbnails.  The
+presence of this file is what determines whether a given directory is a
+thumbnail repository.
 
 =item
 
@@ -812,10 +1097,10 @@ shorts and longs.
 
 =back
 
-You can create multiple repositories, one per directory.  You could probably
-even nest them (I haven't vetted this myself).
+You can create multiple repositories, one per directory, but you probably
+shouldn't nest them.
 
-=item add [files(s)]
+=item index [files(s)]
 
 This command adds YouTube videos to an index.  The index is just a staging area.
 This command does I<not> download the thumbnails; it only marks them to be
@@ -847,59 +1132,42 @@ be supplied line-by-line, but this is most natural.  (Note that this command is
 responsible for differentiating videos by their content type.  The link is used
 to determine this.)
 
-The standard output of this command is the number of unique videos added to the
-index.
+=item download [-p]
 
-=item scrape [-f]
+This command downloads thumbnails in the index if they haven't already been
+downloaded.  The image is obtained in its best possible quality as a JPEG file.
+The B<-p> flag can be supplied to monitor the [p]rogress of the download.
+
+=item scrape [-p]
 
 This command retrieves metadata for thumbnails in the index.  It scrapes each
-video's webpage for relevant information.  Only videos in the index that have
-not already been scraped are scraped.
+video's webpage for relevant information.  Currently, the title and channel name
+are acquired, and these are used to allow the user to search for a thumbnail in
+their repository offline.  Only downloaded thumbnails are scraped, and only if
+they haven't already been scraped.  The B<-p> flag can be supplied to monitor
+the [p]rogress of the operation.
 
-As of now, only the title of the video is acquired.  The titles will be used to
-allow the user to search for a thumbnail in their repository offline.
+=item get [-p] [file(s)]
 
-Sometimes an empty title is retrieved because the video was privated, deleted,
-or taken down.  In other instances, a blank title may be retrieved because the
-request was blocked.  Nothing can be done in the former case, but in the latter
-case, one could always try again.  That's what the B<-f> flag is for.  It
-[f]rees up thumbnails without titles to be scraped again.  (Recall that only
-videos in the index that have not already been scraped are scraped.)
-
-=item exec
-
-This command downloads YouTube thumbnails in the index if they haven't already
-been downloaded.  The image is obtained in its best possible quality as a JPEG
-file.
-
-This command delegates the task of downloading thumbnails to another shell
-script, the program which this one wraps.  This command executes that script,
-hence the name.
-
-=item get [-b] [file(s)]
-
-This is a composite command which executes the C<add>, C<scrape>, and C<exec>
-commands in sequence.  The C<get> command can be regarded as a high-level
-command, while the commands C<add>, C<scrape>, and C<exec> can be regarded as
-low-level.  The user should prefer to use C<get> instead of C<add>, C<scrape>,
-and C<exec> independently.  A typical workflow will consist primarily of calling
-the C<get> and C<search> commands.
+This is a compound command which executes the C<index>, C<download>, and
+C<scrape> commands in sequence.  The C<get> command can be regarded as a
+high-level command, while the commands C<index>, C<download>, and C<scrape> can
+be regarded as low-level.  The user should prefer to use C<get> instead of
+C<index>, C<download>, and C<scrape> independently.  A typical workflow will
+consist primarily of calling the C<get> and C<search> commands.
 
 The disadvantage of issuing the low-level commands independently is that if they
 are issued at different times, then information could be lost.  For example,
 adding a thumbnail to the index but downloading it a week later would provide
 opportunity for the video to be privated, deleted, or taken down due to
 copyright.  This could pollute the repository with empty image files and missing
-metadata.
+metadata.  The C<get> command makes everything happen at once, thereby
+circumventing these issues.
 
-The C<get> command makes everything happen at once, thereby circumventing these
-issues.
+The B<-p> flag propagates the [p]rogress flag through to each of `download` and
+`scrape`.  Any [file(s)] are passed to the C<index> command.  See earlier.
 
-The C<-b> flag backgrounds the C<scrape> and C<exec> commands so that the user
-does not have to wait after exiting their text editor.  Be careful using this
-flag; it could lead to race conditions.
-
-Any [file(s)] are passed to the C<add> command.  See earlier.
+TODO remark on why the commands were implemented separately in the first place
 
 =item stats
 
@@ -914,11 +1182,18 @@ versus longs, and how much disk space is used.  Here is a sample output.
 The primary use is to gauge the size of a repository.
 Further reporting may be implemented in the future.
 
-=item search
+=item search [-c] [-u] [-s | -l]
 
-The C<search> command is this program's most sophisticated and noteworthy
-command.  It launches a text-user interface to search for and preview thumbnail
+This command launches a text-user interface to search for and preview thumbnail
 images in your repository, all from the comfort of your terminal.
+
+                               +----------+
+        | thumbnail title here |          |
+        | thumbnail title here | image    |
+        | thumbnail title here | preview  |
+          directions here      | here     |
+          ---------------------|          |
+        > search query here    +----------+
 
 On the left is a searchable, scrollable list of thumbnails identified by video
 title.  On the right is a preview of the currently-selected thumbnail.  The
@@ -935,26 +1210,53 @@ You can
 
 =item * select and de-select images with the tab key
 
+=item * delete selected images by pressing the DEL key
+
 =item * press enter to confirm your selection
-
-=item *
-
-zoom in and out while pressing CTRL+SPACE to refresh the image preview to view a
-thumbnail at differing resolutions.  Zooming functionality is contingent on your
-terminal emulator.  Possibly try CTRL+- and CTRL+=.
 
 =back
 
-The absolute paths of selected images are printed to standard output line by
-line.  In the case of selecting a single image, this allows you to use the
-command as part of a command substitution.
-
-	xdg-open "$(bash youtube-thumbnail-manager.sh search)"
-
-Currently piping doesn't work.  This is a bug.  Otherwise, you would be able to
-do
+Upon pressing enter, the absolute paths of selected images are printed to
+standard output line by line.  These can be piped to other tools.  Here is an
+example.
 
 	bash youtube-thumbnail-manager.sh search | xargs xdg-open
+
+This would open each image with the system's default image viewer.  By passing
+the B<-u> flag, the command will output the [U]RL of each video instead of the
+image path to the thumbnail.
+
+	bash youtube-thumbnail-manager.sh search -u | xargs xdg-open
+
+This would open each selected YouTube video with the system's default web
+browser.
+
+This covers the basic usage of the command.  The remaining command-line flags
+pertain to filtering the search space.  Pass the B<-s> flag to limit the search
+to [s]hort-form content.  Pass the B<-l> flag to limit the search to [l]ong-form
+content.  These flags are mutually exclusive, and if both are provided, the last
+one to be specified on the command-line takes priority.
+
+The B<-c> flag allows the user to restrict the search space to content
+originating from particular YouTube [c]hannels.  Prior to displaying the primary
+text-user interface, a supplementary instance of fzf launches to allow the user
+to select one or more YouTube channels.
+
+	| channel name here       1
+	| channel name here       2
+	| channel name here       3
+	  CHANNEL                 THUMBNAILS
+	  ----------------------------------
+	> search query here
+
+Two columns are displayed.  The first column is the name of the YouTube channel.
+The second column indicates how many thumbnails in the repository originate from
+that channel.  This list is sorted first by the number of thumbnails and second
+by the channel name, lexicographically.
+
+The B<-c> flag may be compounded with the B<-s> flag or the B<-l> flag to
+restrict the search space to either short-form or long-form content respectively
+originating from a particular set of channels.
 
 =item absorb [-dnp] <repo>
 
@@ -995,42 +1297,26 @@ relevant when the secondary repository is large.
 
 =item troubleshoot
 
-This command is purposefully excluded from the command-line help message.  It is
-more relevant to me, the programmer, than it is to you, the user.  My own
-repositories have grown unwieldy because they carry remnants from earlier stages
-in the development of this tool.
-
-Use this command to
-
-=over
-
-=item * identify discrepancies between indexed and downloaded images
-
-=item * identify failures in the acquisition of thumbnail titles
-
-=back
-
-This is relevant when the C<add>, C<scrape>, and C<exec> commands are
-(inappropriately) used in a fashion as described in the documentation for the
-C<get> command.  See earlier.
-
-The output of this command is a series of tables.
+This command identifies discrepancies between indexed and downloaded images.
+Its output is a table that looks like this.
 
 		    LONGS  SHORTS  TOTAL
 	INDEXED     3170   226     3396
 	DOWNLOADED  3170   226     3396
 	DIFFERENCE  0      0       0
 
+This table pertains to the success of the C<download> command.  A difference of
+zero indicates that nothing is wrong; all indexed images have been downloaded.
 
-		  NO   YES   TOTAL
-	SCRAPED?  0    3396  3396
-	TITLED?   181  3215  3396
+This command is purposefully excluded from the command-line help message.  It is
+more relevant to me, the programmer, than it is to you, the user.  My own
+repositories have grown unwieldy because they carry remnants from earlier stages
+in the development of this tool.
 
-The first table pertains to the success of the C<exec> command. The second table
-pertains to the success of the C<scrape> command.  In the first table, a
-difference of zero indicates that nothing is wrong; all indexed images have been
-downloaded.  The second table, especially its second row, pertains to the use of
-the scrape command's option C<-f>.  See earlier.
+=item dump
+
+This command displays the contents of the SQLite database in a pager.  This
+command is purposefully excluded from the command-line help message.
 
 =back
 
@@ -1046,27 +1332,41 @@ The program exits with the following status codes.
 
 =item 2 missing Perl module HTML::Entities
 
+It can be installed on Arch Linux with this command.
+
+	sudo pacman -S perl-html-parser
+
 =item 3 no internet connectivity
 
-=item 4 missing base script
+=item 4 default repository not defined
+
+This error occurs when the default repository is explicitly targeted with the
+B<-d> flag but the environment variable specifying the default repository is
+unset.  See the ENVIRONMENT section.
 
 =item 5 not a directory
 
+This can occur when using B<-d> or B<-r> I<PATH>.
+
 =item 6 not a repository
+
+You have to initialize the targeted directory as a repository prior to use.
+
+	bash youtube-thumbnail-manager.sh -r path/to/dir/ init
 
 =item 7 unknown command
 
-=item 8 a non-file argument was passed to the add/get command
+=item 8 command index/get: not a file
 
-=item 9 the absorb command received a wrong number of arguments
+A non-file argument was passed to the C<index> or C<get> command.
 
-=item 10 the argument to the absorb command was not a thumbnail repository
+=item 9 command absorb: exactly one argument is required
+
+=item 10 command absorb: not a directory/repository
+
+The argument supplied to the C<absorb> command is invalid.
 
 =back
-
-You can install the Perl module on Arch Linux with this command.
-
-	sudo pacman -S perl-html-parser
 
 =head1 EXAMPLES
 
@@ -1140,45 +1440,6 @@ The editor used to paste YouTube links into.
 
 The directory used when the current directory is not a YouTube thumbnail
 repository.
-
-=back
-
-=head1 CAVEATS
-
-It was noted that the presence of the metadata subdirectory named C<.thumbnails>
-is what determines whether a given directory is a thumbnail repository.
-
-It is possible to have a false positive if another application creates a
-directory with the name C<.thumbnails>.  If this is an issue, you can change the
-name of the metadata directory in the source code of this program.  It is easy
-to change since it is defined as a variable.  As an example, C<.yt-thumbs> would
-be more unique, but I prefer C<.thumbnails> as a matter of aesthetics.
-
-You would also need to migrate existing repositories, e.g.,
-
-	cd my-repository
-	mv .thumbnails .yt-thumbs
-
-=head1 TODO
-
-=over
-
-=item
-
-Migrate to SQLite.
-
-=item
-
-Allow the user to specify a different backend for downloading images, perhaps in
-an environment variable.
-
-=item
-
-Only a handful of subcommands require internet connectivity, yet this script
-errors on no connection irrespective of the command used.  This behavior should
-be redesigned so that the script only errors when internet connectivity is
-strictly required.  (The commands which require internet connectivity are
-scrape, exec, and get.)
 
 =back
 

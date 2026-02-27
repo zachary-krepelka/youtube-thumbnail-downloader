@@ -5,7 +5,7 @@
 	AUTHOR: Zachary Krepelka
 	DATE: Saturday, July 19th, 2025
 	ORIGIN: https://github.com/zachary-krepelka/youtube-thumbnail-downloader.git
-	UPDATED: Sunday, February 8th, 2026 at 7:34 PM
+	UPDATED: Friday, February 27th, 2026 at 1:23 AM
 -->
 
 A shell script to bulk download YouTube thumbnail images
@@ -39,16 +39,24 @@ This repository is the home of two shell scripts.
    quality and file format.  It works on YouTube Shorts in addition to
    traditional videos.
 
-2. `youtube-thumbnail-manager.sh` wraps `youtube-thumbnail-grabber.sh`
-   to facilitate not only downloading thumbnails but also organizing
-   them on your computer.  It provides a workflow-centric solution for
-   managing a large, offline collection of YouTube thumbnails.  This
-   workflow supplements the YouTube browsing experience.  The interface
-   of this program and the workflow surrounding it are loosely similar
-   to that of `git`, the ubiquitous version control system.
+2. `youtube-thumbnail-manager.sh` facilitates not only downloading
+   thumbnails but also organizing them on your computer.  It provides a
+   workflow-centric solution for managing a large, offline collection of
+   YouTube thumbnails with CRUD-like functionality.  This workflow
+   supplements the YouTube browsing experience.  The interface of this
+   program and the workflow surrounding it are loosely similar to that
+   of `git`, the ubiquitous version control system.
 
-For brevity I will refer to these as `grabber` and `manager`.  The third
-file with the `.tmux` extension is just a supplemental file.
+For brevity I will refer to these as `grabber` and `manager`.
+
+> [!NOTE]
+> `manager` was originally a wrapper around `grabber` but now implements
+> its own backend.  Both scripts are self-contained downloaders.
+> `grabber` is simpler, more robust, and useful for one-off use cases.
+> `manager` is specifically designed for recurrent, ritualistic use with
+> common-sense defaults, and it is a more complex program.
+
+The third file with the `.tmux` extension is just a supplemental file.
 
 ## Requirements
 
@@ -69,16 +77,6 @@ These are prerequisite.
   report an error if a dependency is missing, which you can then install
   with your package manager.
 
-  * Among the dependencies which you can expect to be missing on your
-    system are the [moreutils][3], a well-known extension to the
-    [coreutils][4]. These are both collections of binaries.
-    Particularly, `ifne`, `sponge`, and `vipe` are required.  These are
-    usually installed together using `moreutils` as the keyword to your
-    package manager.
-
-  * You will also need `fzf`, `chafa`, `whiptail`, and ImageMagick's
-    `convert` among others.
-
 ## Installation
 
 To demo these programs, you can either clone this repository or download
@@ -89,11 +87,9 @@ required if you have a working command-line environment.
 > Responsible GitHub visitors review the
 > source code of a script before running it.
 
-For a persistent installation, put the script `grabber` in a folder on
-your path and make it executable with the `chmod` command.  Optionally,
-put `manager` *in the same directory* as `grabber`, again making it
-executable.  Note that `grabber` is a self-contained program whereas
-`manager` depends on `grabber`.
+For a persistent installation, put the scripts `grabber` and `manager`
+in a folder on your path and make them executable with the `chmod`
+command.
 
 ## Getting Started
 
@@ -121,9 +117,7 @@ with the button to your right.
 for script in grabber manager; do wget -qO- https://raw.githubusercontent.com/zachary-krepelka/youtube-thumbnail-downloader/refs/heads/main/youtube-thumbnail-$script.sh | pod2text | less; done
 ```
 
-These help flags are available for both scripts.  Note that `manager`
-builds on top of `grabber`, so its operation is more complex.  I
-recommend that you try `grabber` first.
+These help flags are available for both scripts.
 
 ## Usage
 
@@ -166,19 +160,20 @@ Usage:
   bash youtube-thumbnail-manager.sh [opts] <cmd>
 
 Options:
-  -q        be [q]uiet: silence warnings but not errors
-  -r <dir>  use <dir> as the [r]epo instead of $PWD
+  -q        silence warnings and errors
+  -r <dir>  target <dir> instead of $PWD as the [r]epo
+  -d        target [d]efault repo even when $PWD is a repo
 
 Commands:
   init                  create an empty thumbnail repository in working directory
-  add [file(s)]         add YouTube thumbnails to the index
+  index [file(s)]       add YouTube thumbnails to the index
                         links are read from [file(s)] if provided;
                         otherwise, a text editor opens to paste links into
-  scrape [-f]           retrieve metadata for thumbnails in the index
-  exec                  downloads thumbnails in the index
-  get [-b] [file(s)]    add + scrape + exec
+  download [-p]         downloads thumbnails in the index
+  scrape [-p]           retrieve metadata for (downloaded) thumbnails in the index
+  get [-p] [files(s)]   index + download + scrape
   stats                 report number of thumbnails and their disk usage
-  search                fuzzy find a thumbnail by its video's title
+  search [-cusl]        fuzzy find a thumbnail by its video's title
                         uses chafa for image previews
   absorb [-dnp] <repo>  pull in images from another repository
 
@@ -195,7 +190,7 @@ e.g., if you use Zsh.
 
 ```bash
 alias yt=youtube-thumbnail-manager.sh
-complete -W 'init add scrape exec get stats search absorb troubleshoot' yt
+complete -W 'init index download scrape get stats search absorb troubleshoot dump' yt
 export DEFAULT_YOUTUBE_THUMBNAIL_REPOSITORY=/directory/of/your/choice
 ```
 
@@ -216,11 +211,6 @@ interface around the `manager` script.
 ```bash
 tmux source-file youtube-thumbnail-keybinds.tmux
 ```
-
-If you decide to rename these programs, perhaps because their names are
-too verbose, then you will need to edit the reference to `grabber` in
-the source code of `manager`.  CTRL+F should do the trick in a standard
-text editor.  I prefer to use an alias as shown above.
 
 ## Workflow
 
